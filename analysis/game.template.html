@@ -6,12 +6,13 @@
 <meta name="theme-color" content="#080c17">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>扫雷 4×5 · 纯色高分挑战 &amp; 标注推理器</title>
+<title>扫雷 · 纯色高分挑战 &amp; 标注推理器（初级 / 中级 / 高级）</title>
 <style>
   :root{
     --bg:#080c17; --bg2:#0e1526; --panel:#111a2e; --line:#22304d;
     --txt:#e8eefc; --dim:#8ea0c2;
-    --green:#22c55e; --blue:#3b82f6; --red:#ef4444; --gold:#fbbf24;
+    --green:#22c55e; --blue:#3b82f6; --red:#ef4444;
+    --silver:#cbd5e1; --gold:#fbbf24; --gray:#64748b;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{min-height:100%}
@@ -23,7 +24,7 @@
       radial-gradient(800px 500px at 100% 0%, #1b1630 0%, transparent 55%),
       var(--bg);
     display:flex; align-items:flex-start; justify-content:center;
-    padding:calc(18px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
+    padding:calc(16px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
     overflow-x:hidden;
   }
   body.screen-shake{animation:screenShake .62s cubic-bezier(.36,.07,.19,.97) both}
@@ -38,13 +39,25 @@
     90%{transform:translate3d(-2px,2px,0)}
   }
 
-  .app{width:min(1060px,100%); position:relative; z-index:2}
+  .app{width:min(1120px,100%); position:relative; z-index:2}
   header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-wrap:wrap}
   .titlegroup{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
   h1{font-size:20px; letter-spacing:.4px; margin:0; font-weight:650}
   h1 b{color:var(--gold)}
   .sub{color:var(--dim); font-size:12.5px}
-  .sub kbd{background:#1a2540;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;font:inherit;font-size:11.5px}
+
+  /* Level Tabs (初级 / 中级 / 高级) */
+  .topbar-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap; width:100%; justify-content:space-between; margin-bottom:10px}
+  .leveltabs{display:inline-flex; background:#0b1222; border:1px solid #263658; border-radius:13px; padding:3px; gap:4px}
+  .lvbtn{
+    font:inherit; font-size:13px; font-weight:700; color:var(--dim); background:transparent; border:none;
+    padding:7px 14px; border-radius:10px; cursor:pointer; transition:.18s; touch-action:manipulation;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .lvbtn:hover{color:var(--txt)}
+  .lvbtn .lv-meta{font-size:11px; font-weight:600; opacity:.75}
+  .lvbtn.active{background:linear-gradient(180deg,#f59e0b,#b45309); color:#fff; box-shadow:0 3px 12px rgba(245,158,11,.35)}
+  .lvbtn.active .lv-meta{opacity:.95}
 
   /* Mode Switcher */
   .modeswitch{display:inline-flex; background:#0d1526; border:1px solid #263658; border-radius:12px; padding:3px; gap:4px}
@@ -53,7 +66,7 @@
   .modebtn:hover{color:var(--txt)}
   .modebtn.active{background:linear-gradient(180deg,#2b3d6b,#1e2c50); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.35)}
 
-  .stage{display:grid; grid-template-columns:minmax(0,1fr) 292px; gap:20px; margin-top:10px; align-items:start}
+  .stage{display:grid; grid-template-columns:minmax(0,1fr) 298px; gap:20px; margin-top:6px; align-items:start}
 
   .panel{background:linear-gradient(180deg,rgba(20,30,52,.92),rgba(13,20,36,.92));
     border:1px solid var(--line); border-radius:20px; box-shadow:0 20px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04)}
@@ -68,6 +81,8 @@
     transition:transform .16s ease}
   .scorebox.qualified .score{background:linear-gradient(180deg,#fff7d6,#fbbf24); -webkit-background-clip:text; background-clip:text; color:transparent}
   .score.pop{transform:scale(1.14)}
+  .score.penalty-hit{animation:penaltyFlash .45s ease}
+  @keyframes penaltyFlash{0%,100%{filter:none} 35%{filter:drop-shadow(0 0 12px #94a3b8); transform:scale(.9)}}
   .badge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:99px;
     background:rgba(30,45,78,.8); border:1px solid #304775; color:#a9c1ec; transition:.25s}
   .badge.pass{background:linear-gradient(90deg,rgba(251,191,36,.22),rgba(245,158,11,.12)); border-color:var(--gold); color:#fde68a}
@@ -99,18 +114,19 @@
   .recbanner .rec-sub{font-size:12px; color:var(--dim); margin-top:3px; line-height:1.45}
   .recbanner .rec-tag{font-size:11px; font-weight:800; padding:2.5px 8px; border-radius:7px; background:var(--gold); color:#0b1020; flex:none}
 
-  /* ---------- Quick Color Dock (right above board, great for mobile & PC) ---------- */
+  /* ---------- Quick Color Dock (right above board) ---------- */
   .colordock{
     margin-bottom:12px; padding:10px 12px; border-radius:16px;
     background:linear-gradient(180deg,rgba(19,29,52,.94),rgba(12,19,35,.94));
     border:1px solid #26385c;
     display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
   }
-  .colordock .dock-label{font-size:12px; color:var(--dim); font-weight:650; display:flex; align-items:center; gap:6px}
+  .colordock .dock-label{font-size:12px; color:var(--dim); font-weight:650; display:flex; align-items:center; gap:6px; width:100%; justify-content:space-between}
   .colordock .dock-label span.hint-touch{color:#93c5fd; font-weight:600}
-  .brushbar{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; flex:1; min-width:260px}
+  .brushbar{display:flex; flex-wrap:wrap; gap:6px; width:100%}
   .brushbtn{
-    font:inherit; font-size:12.5px; font-weight:750; padding:8px 6px; border-radius:10px; cursor:pointer;
+    flex:1 1 auto; min-width:58px;
+    font:inherit; font-size:12px; font-weight:750; padding:8px 6px; border-radius:10px; cursor:pointer;
     background:#152038; border:1px solid #26385c; color:var(--dim);
     display:flex; align-items:center; justify-content:center; gap:5px; transition:.15s;
     touch-action:manipulation; user-select:none;
@@ -122,6 +138,10 @@
   /* ---------- board ---------- */
   .boardwrap{padding:16px; position:relative}
   #board{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; touch-action:manipulation}
+  #board.cols-5{grid-template-columns:repeat(5,1fr); gap:10px}
+  #board.cols-6{grid-template-columns:repeat(6,1fr); gap:9px}
+  #board.cols-8{grid-template-columns:repeat(8,1fr); gap:7px}
+
   .cell{
     position:relative; aspect-ratio:1/1; border:none; border-radius:14px; cursor:pointer;
     background:linear-gradient(160deg,#1d2a44,#151f34);
@@ -131,6 +151,7 @@
     overflow:hidden; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
     touch-action:manipulation;
   }
+  #board.cols-8 .cell{border-radius:11px}
   .cell::after{content:""; position:absolute; inset:0;
     background-image:radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px);
     background-size:9px 9px; opacity:.35; pointer-events:none; transition:opacity .2s}
@@ -147,7 +168,9 @@
     position:absolute; right:6px; top:4px; font-size:9.5px; color:rgba(142,160,194,.42);
     font-weight:650; pointer-events:none; line-height:1;
   }
+  #board.cols-8 .cell .coord{right:4px; top:3px; font-size:8.5px}
   .cell.open .coord{color:rgba(255,255,255,.68)}
+  .cell.s.open .coord,.cell.y.open .coord{color:rgba(15,23,42,.72)}
 
   /* Color-only cells: pure luminous tile + subtle inner emblem */
   .cell .orb{
@@ -156,6 +179,8 @@
     pointer-events:none;
   }
   .cell.open .orb{opacity:1; transform:scale(1)}
+
+  /* Green: 0 mines (+1) */
   .cell.g{
     background:radial-gradient(circle at 32% 28%, #4ade80 0%, #16a34a 58%, #0f6e31 100%);
     box-shadow:0 0 0 1px rgba(134,239,172,.55) inset, 0 8px 22px rgba(34,197,94,.30);
@@ -164,6 +189,8 @@
     background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.75), rgba(187,247,208,.2) 65%, transparent 72%);
     box-shadow:0 0 16px rgba(255,255,255,.35), inset 0 0 0 2px rgba(255,255,255,.35);
   }
+
+  /* Blue: 1-2 mines (+5) */
   .cell.b{
     background:radial-gradient(circle at 32% 28%, #60a5fa 0%, #2563eb 58%, #1a3fa3 100%);
     box-shadow:0 0 0 1px rgba(147,197,253,.55) inset, 0 8px 22px rgba(59,130,246,.32);
@@ -172,6 +199,8 @@
     background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.8), rgba(191,219,254,.22) 65%, transparent 72%);
     box-shadow:0 0 18px rgba(255,255,255,.38), inset 0 0 0 2px rgba(255,255,255,.38);
   }
+
+  /* Red: 3-4 mines (+20) */
   .cell.r{
     background:radial-gradient(circle at 32% 28%, #fb7185 0%, #e11d48 55%, #9f1239 100%);
     box-shadow:0 0 0 1px rgba(254,202,202,.6) inset, 0 8px 26px rgba(239,68,68,.38);
@@ -181,15 +210,50 @@
     box-shadow:0 0 22px rgba(255,255,255,.5), inset 0 0 0 2px rgba(255,255,255,.45);
   }
 
+  /* Silver: 5-6 mines (+50) */
+  .cell.s{
+    background:linear-gradient(145deg, #f8fafc 0%, #cbd5e1 45%, #64748b 100%);
+    box-shadow:0 0 0 1.5px #ffffff inset, 0 8px 25px rgba(203,213,225,.38);
+    color:#0f172a;
+  }
+  .cell.s .orb{
+    background:radial-gradient(circle at 35% 35%, #ffffff, rgba(148,163,184,.4) 65%, transparent 75%);
+    box-shadow:0 0 18px rgba(255,255,255,.85), inset 0 0 0 2px rgba(15,23,42,.25);
+  }
+
+  /* Gold: 7-8 mines (+100) */
+  .cell.y{
+    background:radial-gradient(circle at 30% 26%, #fef08a 0%, #f59e0b 52%, #b45309 100%);
+    box-shadow:0 0 0 1.5px #fef9c3 inset, 0 8px 28px rgba(251,191,36,.48);
+    color:#1e1b08;
+  }
+  .cell.y .orb{
+    background:radial-gradient(circle at 35% 35%, #ffffff, rgba(254,240,138,.45) 65%, transparent 75%);
+    box-shadow:0 0 22px rgba(255,255,255,.9), inset 0 0 0 2px rgba(120,53,15,.35);
+  }
+
+  /* Gray: Penalty Mine (-10, min 0, game continues!) */
+  .cell.p{
+    background:repeating-linear-gradient(135deg, #475569, #475569 7px, #334155 7px, #334155 14px);
+    box-shadow:0 0 0 1.5px #94a3b8 inset, 0 6px 18px rgba(100,116,139,.35);
+    color:#f1f5f9;
+  }
+  .cell.p .penalty-svg{width:54%; height:54%; pointer-events:none; filter:drop-shadow(0 2px 5px rgba(0,0,0,.55))}
+
   /* Manual color annotation badge */
   .cell .marktag{
     position:absolute; left:6px; bottom:5px; font-size:9.5px; font-weight:750;
-    padding:1px 4px; border-radius:4px; background:rgba(0,0,0,.38); color:#fff;
+    padding:1px 4px; border-radius:4px; background:rgba(0,0,0,.42); color:#fff;
     pointer-events:none; letter-spacing:.1px; line-height:1.2;
   }
+  #board.cols-8 .cell .marktag{left:3px; bottom:3px; font-size:8px; padding:0 3px}
 
-  .cell .pts{position:absolute; right:6px; bottom:5px; font-size:11px; font-weight:800; opacity:.92;
+  .cell .pts{position:absolute; right:6px; bottom:5px; font-size:11px; font-weight:800; opacity:.95;
     text-shadow:0 1px 4px rgba(0,0,0,.45); letter-spacing:.1px; pointer-events:none; line-height:1}
+  .cell.s .pts,.cell.y .pts{color:#0f172a; text-shadow:0 1px 0 rgba(255,255,255,.65)}
+  .cell.p .pts{color:#fca5a5; text-shadow:0 1px 4px rgba(0,0,0,.85)}
+  #board.cols-8 .cell .pts{right:4px; bottom:3px; font-size:9.5px}
+
   .cell.pop{animation:pop .34s cubic-bezier(.2,1.6,.4,1)}
   @keyframes pop{0%{transform:scale(.65); opacity:.3} 60%{transform:scale(1.06)} 100%{transform:scale(1)}}
 
@@ -226,16 +290,20 @@
 
   /* Probability & EV overlay on unrevealed cells */
   .cell .prob{position:absolute; left:6px; top:5px; font-size:10.5px; font-weight:800; letter-spacing:.1px; opacity:.96; pointer-events:none; line-height:1.15}
+  #board.cols-8 .cell .prob{left:4px; top:3px; font-size:9px}
   .cell .prob.safe{color:#7dfab0}
   .cell .prob.warn{color:#ffd166}
   .cell .prob.bad{color:#ff8b8b}
   .cell .prob.certain-mine{color:#ff4d4d; background:rgba(69,10,10,.88); padding:1px 4px; border-radius:4px; border:1px solid rgba(239,68,68,.6); font-size:9.5px}
+  #board.cols-8 .cell .prob.certain-mine{font-size:8px; padding:1px 2px}
   .cell .evtag{position:absolute; left:6px; bottom:5px; font-size:9.5px; color:#b8c7e6; font-weight:650; opacity:.88; pointer-events:none; line-height:1}
+  #board.cols-8 .cell .evtag{left:4px; bottom:3px; font-size:8px}
   .cell.sure-safe:not(.open){box-shadow:inset 0 0 0 1.5px rgba(34,197,94,.65), 0 4px 12px rgba(34,197,94,.16)}
   .cell.sure-mine:not(.open){background:linear-gradient(160deg,#2b1219,#1a0b10); box-shadow:inset 0 0 0 1.5px rgba(239,68,68,.65)}
   .cell.rec{outline:2.5px solid var(--gold); outline-offset:2px; box-shadow:0 0 22px rgba(251,191,36,.35)}
   .cell.rec:not(.open)::before{content:"推荐"; position:absolute; right:4px; bottom:4px; font-size:9.5px; color:#0b1020;
     background:var(--gold); border-radius:4px; padding:1px 4px; font-weight:800; z-index:2; line-height:1.15}
+  #board.cols-8 .cell.rec:not(.open)::before{right:2px; bottom:2px; font-size:8px; padding:1px 3px}
 
   /* ---------- Right-click / Long-press floating color palette ---------- */
   .menu-backdrop{
@@ -248,16 +316,16 @@
     background:rgba(13,21,38,.97); border:1px solid #385082; border-radius:16px;
     padding:10px; box-shadow:0 18px 42px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.06) inset;
     backdrop-filter:blur(12px);
-    min-width:215px;
+    min-width:225px;
   }
   .color-menu.show{display:block; animation:menuPop .15s cubic-bezier(.2,1.3,.4,1)}
   @keyframes menuPop{from{transform:scale(.92); opacity:0}to{transform:scale(1); opacity:1}}
   .color-menu .cm-title{font-size:12px; color:var(--dim); font-weight:700; padding:3px 7px 8px; border-bottom:1px solid #223252; margin-bottom:7px; display:flex; justify-content:space-between; align-items:center}
-  .color-menu .cm-grid{display:grid; grid-template-columns:1fr; gap:6px}
+  .color-menu .cm-grid{display:grid; grid-template-columns:1fr; gap:5px}
   .color-menu button{
-    font:inherit; font-size:13.5px; font-weight:750; color:var(--txt);
-    background:#17233d; border:1px solid #283a61; border-radius:11px;
-    padding:10px 12px; cursor:pointer; display:flex; align-items:center; gap:9px;
+    font:inherit; font-size:13px; font-weight:750; color:var(--txt);
+    background:#17233d; border:1px solid #283a61; border-radius:10px;
+    padding:9px 11px; cursor:pointer; display:flex; align-items:center; gap:9px;
     transition:.12s; text-align:left; touch-action:manipulation;
   }
   .color-menu button:hover,.color-menu button:active{border-color:#5a7cc2; background:#21345c}
@@ -265,8 +333,11 @@
   .color-menu button .dot.g{background:var(--green); box-shadow:0 0 8px rgba(34,197,94,.6)}
   .color-menu button .dot.b{background:var(--blue); box-shadow:0 0 8px rgba(59,130,246,.6)}
   .color-menu button .dot.r{background:var(--red); box-shadow:0 0 8px rgba(239,68,68,.6)}
+  .color-menu button .dot.s{background:linear-gradient(135deg,#f8fafc,#94a3b8); box-shadow:0 0 8px rgba(226,232,240,.6)}
+  .color-menu button .dot.y{background:linear-gradient(135deg,#fef08a,#f59e0b); box-shadow:0 0 8px rgba(251,191,36,.7)}
+  .color-menu button .dot.p{background:repeating-linear-gradient(135deg,#64748b,#64748b 4px,#334155 4px,#334155 8px); border:1px solid #94a3b8}
   .color-menu button .dot.c{background:#334155; border:1px dashed #94a3b8}
-  .color-menu button .cm-range{margin-left:auto; font-size:11.5px; color:var(--dim); font-weight:600}
+  .color-menu button .cm-range{margin-left:auto; font-size:11px; color:var(--dim); font-weight:600}
 
   /* ---------- side ---------- */
   .side{display:flex; flex-direction:column; gap:14px}
@@ -282,13 +353,18 @@
   button.btn.on{background:linear-gradient(180deg,#2b3d6b,#1e2c50); border-color:#5b7bc0; color:#cfe0ff}
   button.btn.wide{grid-column:1/-1; background:linear-gradient(180deg,#1f3a2e,#152a21); border-color:#2f6b4c; color:#c9f7dc}
   button.btn.wide:hover{background:linear-gradient(180deg,#255040,#183527)}
-  .stat{display:flex; justify-content:space-between; font-size:13px; padding:4.5px 0; color:var(--dim)}
+  .stat{display:flex; justify-content:space-between; font-size:12.5px; padding:4px 0; color:var(--dim)}
   .stat b{color:var(--txt); font-variant-numeric:tabular-nums}
   .stat b.gold{color:var(--gold)}
-  .legend{display:flex; flex-direction:column; gap:8px; font-size:12.5px; color:var(--dim)}
+  .legend{display:flex; flex-direction:column; gap:7px; font-size:12px; color:var(--dim)}
   .legend div{display:flex; align-items:center; gap:8px}
   .sw{width:13px;height:13px;border-radius:4px;flex:none}
-  .sw.g{background:var(--green)} .sw.b{background:var(--blue)} .sw.r{background:var(--red)}
+  .sw.g{background:var(--green)}
+  .sw.b{background:var(--blue)}
+  .sw.r{background:var(--red)}
+  .sw.s{background:linear-gradient(135deg,#f8fafc,#94a3b8); border:1px solid #fff}
+  .sw.y{background:linear-gradient(135deg,#fef08a,#f59e0b); border:1px solid #fef08a}
+  .sw.p{background:repeating-linear-gradient(135deg,#64748b,#64748b 3px,#334155 3px,#334155 6px); border:1px solid #94a3b8}
   .tip{font-size:12px; color:var(--dim); line-height:1.55; margin-top:8px}
 
   /* ---------- explosion canvas & flash ---------- */
@@ -326,20 +402,23 @@
   details.rules b{color:#d6e3ff}
 
   /* ---------- Mobile & Tablet Responsive Adaptations ---------- */
-  @media (max-width:860px){
+  @media (max-width:880px){
     .stage{grid-template-columns:1fr; gap:14px}
     .side{display:grid; grid-template-columns:1fr 1fr; gap:12px}
     .side .card:first-child{grid-column:1/-1}
   }
-  @media (max-width:560px){
+  @media (max-width:580px){
     body{
       padding:calc(10px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(10px + env(safe-area-inset-left, 0px));
     }
-    header{gap:8px; margin-bottom:8px}
-    h1{font-size:17.5px}
+    header{gap:6px; margin-bottom:6px}
+    h1{font-size:17px}
     .sub{font-size:11.5px}
+    .topbar-controls{flex-direction:column; align-items:stretch; gap:7px}
+    .leveltabs{width:100%; display:grid; grid-template-columns:repeat(3,1fr)}
+    .lvbtn{padding:8px 4px; font-size:12px; justify-content:center}
     .modeswitch{width:100%; display:grid; grid-template-columns:1fr 1fr}
-    .modebtn{padding:8px 6px; font-size:12.5px; text-align:center}
+    .modebtn{padding:8px 6px; font-size:12px; text-align:center}
 
     .scorebox{padding:11px 13px 10px; margin-bottom:10px; border-radius:16px}
     .score{font-size:34px}
@@ -352,31 +431,34 @@
     .recbanner .rec-sub{font-size:11.5px}
 
     .colordock{padding:9px 10px; margin-bottom:10px; border-radius:14px; gap:7px}
-    .colordock .dock-label{width:100%; justify-content:space-between; font-size:11.5px}
-    .brushbar{width:100%; min-width:0; gap:5px}
-    .brushbtn{padding:9px 3px; font-size:12px; border-radius:9px}
+    .brushbtn{padding:8px 4px; font-size:11.5px; border-radius:9px; min-width:50px}
 
-    .boardwrap{padding:10px; border-radius:16px}
-    #board{gap:7px}
-    .cell{border-radius:11px}
-    .cell .coord{right:4px; top:3px; font-size:8.5px}
-    .cell .prob{left:4px; top:3px; font-size:9.5px}
-    .cell .prob.certain-mine{font-size:8.5px; padding:1px 3px}
-    .cell .evtag{left:4px; bottom:3px; font-size:8.5px}
-    .cell .marktag{left:4px; bottom:3px; font-size:8.5px; padding:0 3px}
-    .cell .pts{right:4px; bottom:3px; font-size:9.5px}
+    .boardwrap{padding:9px; border-radius:16px}
+    #board.cols-5{gap:7px}
+    #board.cols-6{gap:6px}
+    #board.cols-8{gap:4.5px}
+    .cell{border-radius:10px}
+    #board.cols-8 .cell{border-radius:8px}
+    .cell .coord{right:3px; top:2px; font-size:8px}
+    .cell .prob{left:3px; top:2px; font-size:9px}
+    #board.cols-8 .cell .prob{left:2px; top:2px; font-size:7.5px}
+    .cell .prob.certain-mine{font-size:8px; padding:1px 2px}
+    .cell .evtag{left:3px; bottom:2px; font-size:8px}
+    #board.cols-8 .cell .evtag{display:none}
+    .cell .marktag{left:3px; bottom:2px; font-size:8px; padding:0 2px}
+    .cell .pts{right:3px; bottom:2px; font-size:9px}
+    #board.cols-8 .cell .pts{right:2px; bottom:2px; font-size:8px}
     .cell.rec{outline-width:2px; outline-offset:1px}
-    .cell.rec:not(.open)::before{right:3px; bottom:3px; font-size:8.5px; padding:1px 3px}
+    .cell.rec:not(.open)::before{right:2px; bottom:2px; font-size:8px; padding:1px 3px}
 
     .side{grid-template-columns:1fr; gap:10px}
     .card{padding:12px 13px; border-radius:16px}
 
-    /* Bottom-sheet style color menu on narrow mobile screens for easy thumb reach */
     .color-menu{
-      left:12px !important; right:12px !important; bottom:calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+      left:12px !important; right:12px !important; bottom:calc(12px + env(safe-area-inset-bottom, 0px)) !important;
       top:auto !important; width:auto; min-width:0; border-radius:18px; padding:12px;
     }
-    .color-menu button{padding:12px 14px; font-size:14px}
+    .color-menu button{padding:10px 12px; font-size:13.5px}
   }
 </style>
 </head>
@@ -392,6 +474,9 @@
     <button type="button" data-col="g"><span class="dot g"></span>标注为 绿色<span class="cm-range">0 雷 · +1</span></button>
     <button type="button" data-col="b"><span class="dot b"></span>标注为 蓝色<span class="cm-range">1–2 雷 · +5</span></button>
     <button type="button" data-col="r"><span class="dot r"></span>标注为 红色<span class="cm-range">3–4 雷 · +20</span></button>
+    <button type="button" data-col="s" class="adv-only"><span class="dot s"></span>标注为 银色<span class="cm-range">5–6 雷 · +50</span></button>
+    <button type="button" data-col="y" class="adv-only"><span class="dot y"></span>标注为 金色<span class="cm-range">7–8 雷 · +100</span></button>
+    <button type="button" data-col="p" class="adv-only"><span class="dot p"></span>标注为 灰色 (扣分雷)<span class="cm-range">是雷 · -10</span></button>
     <button type="button" data-col="clear"><span class="dot c"></span>清除该格标注<span class="cm-range">未知</span></button>
   </div>
 </div>
@@ -399,14 +484,31 @@
 <div class="app">
   <header>
     <div class="titlegroup">
-      <h1>扫雷 4×5 · <b>纯色推理器 &amp; 高分挑战</b></h1>
-      <span class="sub">手机点按/长按 · 电脑右键标注颜色（仅知范围 0 / 1–2 / 3–4）</span>
+      <h1>扫雷 · <b>纯色高分挑战 &amp; 标注推理器</b></h1>
+      <span class="sub" id="headerSub">初级 4×5（4 炸弹 · &gt;30 分获胜）</span>
     </div>
-    <div class="modeswitch" role="tablist">
+  </header>
+
+  <div class="topbar-controls">
+    <!-- Level Tabs: 初级 / 中级 / 高级 -->
+    <div class="leveltabs" role="tablist" aria-label="难度级别">
+      <button type="button" class="lvbtn active" data-level="beginner" id="lvBeginnerBtn">
+        <span>初级</span><span class="lv-meta">4×5 · 4雷</span>
+      </button>
+      <button type="button" class="lvbtn" data-level="intermediate" id="lvIntermediateBtn">
+        <span>中级</span><span class="lv-meta">5×6 · 4雷+4扣</span>
+      </button>
+      <button type="button" class="lvbtn" data-level="advanced" id="lvAdvancedBtn">
+        <span>高级</span><span class="lv-meta">5×8 · 8雷+8扣</span>
+      </button>
+    </div>
+
+    <!-- Mode Switcher: 标注颜色推荐模式 / 随机实战游玩模式 -->
+    <div class="modeswitch" role="tablist" aria-label="模式切换">
       <button type="button" class="modebtn active" id="modeSolverBtn">标注颜色推荐模式</button>
       <button type="button" class="modebtn" id="modePlayBtn">随机实战游玩模式</button>
     </div>
-  </header>
+  </div>
 
   <div class="stage">
     <div>
@@ -416,24 +518,27 @@
             <div class="score" id="score">0</div>
             <span class="badge" id="passBadge">目标 &gt; 30 分</span>
           </div>
-          <div class="target">阶段线 <b>30 分</b> · 终极目标 <b>全开 16 格</b><br><span id="highScoreTxt">历史最高：0 分</span></div>
+          <div class="target">
+            阶段线 <b id="targetScoreTxt">&gt; 30 分</b> · 终极目标 <b id="targetClearTxt">全开 16 安全格</b><br>
+            <span id="highScoreTxt">历史最高：0 分</span>
+          </div>
         </div>
-        <div class="bar"><div class="fill" id="fill"></div><div class="mark" title="30 分达标线"></div></div>
+        <div class="bar"><div class="fill" id="fill"></div><div class="mark" id="barMark" title="达标线"></div></div>
         <div class="meta"><span id="progressTxt">还差 31 分达成及格线</span><span id="stateTxt">等待标注</span></div>
       </div>
 
-      <!-- Real-time AI Recommendation Banner -->
+      <!-- Real-time AI Recommendation Banner (Solver mode only) -->
       <div class="recbanner" id="recBanner">
         <div>
           <div class="rec-main">
             <span class="rec-tag" id="recBadge">AI 推荐</span>
             <span id="recTitle">建议先点四角（如第 1 行第 1 列）</span>
           </div>
-          <div class="rec-sub" id="recDetail">四角有 49.1% 概率开出绿色（0 雷），一旦开绿可直接导出周围 3 格 100% 安全。手机可直接在下方选色点格子或长按格子，电脑可直接右键标注。</div>
+          <div class="rec-sub" id="recDetail">四角开出绿色（0 雷）的概率最高，一旦开绿可直接锁定周围 3 格 100% 安全。手机可在下方选色点格子或长按格子，电脑可直接右键标注。</div>
         </div>
       </div>
 
-      <!-- Mobile & PC Quick Color Brush Bar right above the board -->
+      <!-- Mobile & PC Quick Color Brush Bar right above the board (Solver mode only) -->
       <div class="colordock" id="solverTools">
         <div class="dock-label">
           <span>点格子动作：</span>
@@ -443,21 +548,29 @@
           <button type="button" class="brushbtn active" data-brush="g"><span class="sw g"></span>标绿</button>
           <button type="button" class="brushbtn" data-brush="b"><span class="sw b"></span>标蓝</button>
           <button type="button" class="brushbtn" data-brush="r"><span class="sw r"></span>标红</button>
+          <button type="button" class="brushbtn adv-only" data-brush="s" style="display:none"><span class="sw s"></span>标银</button>
+          <button type="button" class="brushbtn adv-only" data-brush="y" style="display:none"><span class="sw y"></span>标金</button>
+          <button type="button" class="brushbtn adv-only" data-brush="p" style="display:none"><span class="sw p"></span>标灰(-10)</button>
           <button type="button" class="brushbtn" data-brush="popup">弹窗选</button>
           <button type="button" class="brushbtn" data-brush="clear">清除</button>
         </div>
       </div>
 
-      <div class="panel boardwrap"><div id="board"></div></div>
+      <div class="panel boardwrap"><div id="board" class="cols-5"></div></div>
 
       <details class="rules">
-        <summary>手机触控 &amp; 电脑右键标注说明 / 纯色范围推理策略</summary>
+        <summary>初级 / 中级 / 高级规则说明 · 扣分雷（灰色）与银色/金色推理策略</summary>
         <div class="body">
-          <b>1. 手机与电脑怎么标注颜色</b>：<br>
-          · <b>手机触控</b>：① 在棋盘上方快捷栏选中「标绿 / 标蓝 / 标红 / 弹窗选」，直接<b>轻点格子</b>即可上色；② 也可在任意格子上<b>长按 0.35 秒</b>呼出底部颜色选择面板。<br>
-          · <b>电脑鼠标</b>：在任意格子上<b>点击鼠标右键</b>弹出选色菜单（或在操作区切换为“右键直接循环绿→蓝→红→清除”）。<br>
-          <b>2. 严格只知道范围、不知道具体雷数</b>：推理引擎对每个已标注格子<b>只知道颜色对应的雷数区间</b>——<b>绿色 = 0 雷</b>、<b>蓝色 ∈ {1, 2} 雷</b>、<b>红色 ∈ {3, 4} 雷</b>。<br>
-          <b>3. 一步前瞻实时推荐</b>：每次标注颜色后，引擎从全部 <b>4845 种</b> 4 雷布局中筛出合法布局，优先推荐 `0%` 必安全格；当必须破局时，自动运行<b>一步前瞻</b>挑选最能打开安全突破口、预计解锁最多必安全格的位置（金色边框 +「推荐」角标）。
+          <b>1. 三个难度级别设定</b>：<br>
+          · <b>初级（4×5 = 20 格）</b>：4 颗致命炸弹，无扣分雷，总分 <b>&gt; 30 分</b>获胜并继续冲高分（保持最初设定完全不变）。<br>
+          · <b>中级（5×6 = 30 格）</b>：<b>4 颗致命炸弹 + 4 颗扣分雷</b>（共 8 雷，22 个安全格），总分 <b>&gt; 50 分</b>获胜并继续冲高分。<br>
+          · <b>高级（5×8 = 40 格）</b>：<b>8 颗致命炸弹 + 8 颗扣分雷</b>（共 16 雷，24 个安全格），总分 <b>&gt; 70 分</b>获胜并继续冲高分。<br>
+          <b>2. 扣分雷（灰色）与银色 / 金色</b>：<br>
+          · <b>扣分雷（灰色，-10 分）</b>：在指示周围格子的颜色时<b>与致命炸弹完全一致</b>（都算作 1 颗雷）；但点到扣分雷时<b>游戏不会结束</b>，当前得分扣 10 分（最低扣到 <b>0 分</b>，不会出现负数），且该格显露为<b>灰色</b>，在推理中直接作为「已确认的雷」帮助排雷！<br>
+          · <b>颜色范围</b>：绿 = 0 雷 (+1)、蓝 = 1–2 雷 (+5)、红 = 3–4 雷 (+20)、<b>银 = 5–6 雷 (+50)</b>、<b>金 = 7–8 雷 (+100)</b>。<br>
+          <b>3. 两种独立模式</b>：<br>
+          · <b>标注颜色推荐模式</b>：支持电脑右键/手机触控标注格子的颜色（含灰色扣分雷、银色、金色），AI 仅根据颜色对应的雷数区间实时推理每格的致命炸弹率与扣分雷率并推荐最优落点。<br>
+          · <b>随机实战游玩模式</b>：保留纯粹的实战游玩体验，无右键标注与推荐辅助，直到所有安全格都被点开或点到致命炸弹爆炸结束。
         </div>
       </details>
     </div>
@@ -477,6 +590,7 @@
         <h3 id="statTitle">纯色范围推理局面</h3>
         <div class="stat"><span>当前累计总分</span><b class="gold" id="sScore">0 分</b></div>
         <div class="stat"><span id="sClicksLabel">已标注 / 安全格</span><b id="sClicks">0 / 16</b></div>
+        <div class="stat" id="rowPenaltyHit" style="display:none"><span>已触发扣分雷 (灰)</span><b id="sPenaltyHit" style="color:#cbd5e1">0 / 4</b></div>
         <div class="stat" id="rowRemSafe" style="display:none"><span>剩余安全格</span><b id="sRemSafe">16 格</b></div>
         <div class="stat" id="rowZeroSafe"><span>0% 必安全格数</span><b id="sZeroSafe" style="color:#7dfab0">—</b></div>
         <div class="stat" id="rowSureMine"><span>100% 必雷格数</span><b id="sSureMine" style="color:#ff8b8b">—</b></div>
@@ -488,8 +602,11 @@
         <h3>颜色范围 → 计分规则</h3>
         <div class="legend">
           <div><span class="sw g"></span> 绿 · 周围 0 雷 <b style="margin-left:auto;color:#7dfab0">+1 分</b></div>
-          <div><span class="sw b"></span> 蓝 · 周围 1–2 雷（仅知范围） <b style="margin-left:auto;color:#8ab6ff">+5 分</b></div>
-          <div><span class="sw r"></span> 红 · 周围 3–4 雷（仅知范围） <b style="margin-left:auto;color:#ff9a9a">+20 分</b></div>
+          <div><span class="sw b"></span> 蓝 · 周围 1–2 雷 <b style="margin-left:auto;color:#8ab6ff">+5 分</b></div>
+          <div><span class="sw r"></span> 红 · 周围 3–4 雷 <b style="margin-left:auto;color:#ff9a9a">+20 分</b></div>
+          <div class="adv-only" style="display:none"><span class="sw s"></span> 银 · 周围 5–6 雷 <b style="margin-left:auto;color:#f1f5f9">+50 分</b></div>
+          <div class="adv-only" style="display:none"><span class="sw y"></span> 金 · 周围 7–8 雷 <b style="margin-left:auto;color:#fde047">+100 分</b></div>
+          <div class="adv-only" style="display:none"><span class="sw p"></span> 灰 · 扣分雷 (不结束，最低0分) <b style="margin-left:auto;color:#cbd5e1">-10 分</b></div>
         </div>
       </div>
     </div>
@@ -515,9 +632,17 @@ __ENGINE__
 /* ==== /ENGINE ==== */
 
 (function () {
-  const { R, C, N, K, SCORE, COLOR, COLOR_SCORE, PLACEMENTS, filterBelief, beliefFromColorMarks, analyze, recommend } = MG;
-  const TOTAL_SAFE = N - K; // 16
-  const CYCLE_NEXT = { '': 'g', g: 'b', b: 'r', r: '' };
+  const {
+    SCORE, COLOR, COLOR_SCORE, LEVELS, PLACEMENTS,
+    beliefFromColorMarks, analyze, recommend,
+    generateRandomLayout, applyScoreStep, solveLevelMarks
+  } = MG;
+
+  const CYCLE_BEGINNER = { '': 'g', g: 'b', b: 'r', r: '' };
+  const CYCLE_ADVANCED = { '': 'g', g: 'b', b: 'r', r: 's', s: 'y', y: 'p', p: '' };
+  const MARK_LABEL = {
+    g: '0雷', b: '1-2雷', r: '3-4雷', s: '5-6雷', y: '7-8雷', p: '扣分雷'
+  };
 
   const $ = id => document.getElementById(id);
   const boardEl = $('board');
@@ -525,13 +650,21 @@ __ENGINE__
   const backdropEl = $('menuBackdrop');
   const cells = [];
 
-  let G = null;
-  let appMode = 'solver';       // 'solver' (color annotation recommender) | 'play' (playable random game)
-  let rightClickStyle = 'menu'; // 'menu' (popup palette) | 'cycle' (g -> b -> r -> clear)
-  let leftBrush = 'g';          // active tap/click brush in solver mode ('g'|'b'|'r'|'popup'|'clear')
+  let currentLevel = 'beginner'; // 'beginner' | 'intermediate' | 'advanced'
+  let appMode = 'solver';        // 'solver' (color annotation recommender) | 'play' (pure random gameplay)
+  let rightClickStyle = 'menu';  // 'menu' | 'cycle'
+  let leftBrush = 'g';           // 'g'|'b'|'r'|'s'|'y'|'p'|'popup'|'clear'
   let menuTargetCell = -1;
-  let highScore = 0;
-  try { highScore = Number(localStorage.getItem('ms4x5_high') || 0) || 0; } catch (_) {}
+  let G = null;
+
+  const highScores = { beginner: 0, intermediate: 0, advanced: 0 };
+  try {
+    highScores.beginner = Number(localStorage.getItem('ms4x5_high') || 0) || 0;
+    highScores.intermediate = Number(localStorage.getItem('ms5x6_high') || 0) || 0;
+    highScores.advanced = Number(localStorage.getItem('ms5x8_high') || 0) || 0;
+  } catch (_) {}
+
+  function lvCfg() { return LEVELS[currentLevel] || LEVELS.beginner; }
 
   /* ---------- Cross-platform inline SVGs ---------- */
   const SVG_MINE_EXPLODED =
@@ -551,6 +684,16 @@ __ENGINE__
       '<circle cx="26" cy="28" r="5" fill="#94a3b8" opacity=".65"/>' +
       '<path d="M35 16 Q42 8 50 12" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>' +
       '<circle cx="51" cy="12" r="4" fill="#ef4444"/>' +
+    '</svg>';
+
+  const SVG_PENALTY_MINE =
+    '<svg class="penalty-svg" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<g stroke="#cbd5e1" stroke-width="3.5" stroke-linecap="round">' +
+        '<line x1="32" y1="9" x2="32" y2="55"/><line x1="9" y1="32" x2="55" y2="32"/>' +
+        '<line x1="16" y1="16" x2="48" y2="48"/><line x1="48" y1="16" x2="16" y2="48"/>' +
+      '</g>' +
+      '<circle cx="32" cy="32" r="15" fill="#334155" stroke="#e2e8f0" stroke-width="2.5"/>' +
+      '<line x1="24" y1="32" x2="40" y2="32" stroke="#fca5a5" stroke-width="4" stroke-linecap="round"/>' +
     '</svg>';
 
   const SVG_MODAL_BOOM =
@@ -604,8 +747,9 @@ __ENGINE__
         return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
       }
     }
-    const r = (i / C) | 0, c = i % C;
-    return { x: 260 + c * 90, y: 260 + r * 90 };
+    const cfg = lvCfg();
+    const r = (i / cfg.C) | 0, c = i % cfg.C;
+    return { x: 240 + c * 80, y: 260 + r * 80 };
   }
 
   function spawnExplosionAt(x, y, scale) {
@@ -745,15 +889,19 @@ __ENGINE__
     spawnExplosionAt(pt.x, pt.y, 1.15);
 
     if (G && G.layout) {
-      let delay = 110;
-      for (let k = 0; k < N; k++) {
-        if (k !== hitCell && (G.layout.mask & (1 << k))) {
+      const cfg = lvCfg();
+      let delay = 95;
+      for (let k = 0; k < cfg.N; k++) {
+        const isFatal = G.layout.fatalSet
+          ? G.layout.fatalSet.has(k)
+          : Boolean(G.layout.mask & (1 << k));
+        if (k !== hitCell && isFatal) {
           const t = setTimeout(() => {
             const p2 = cellCenter(k);
             spawnExplosionAt(p2.x, p2.y, 0.55);
           }, delay);
           chainTimers.push(t);
-          delay += 95;
+          delay += 75;
         }
       }
     }
@@ -767,49 +915,69 @@ __ENGINE__
   }
 
   function openColorMenu(i, clientX, clientY) {
+    const cfg = lvCfg();
     menuTargetCell = i;
     vibrate(18);
-    const r = (i / C | 0) + 1, c = (i % C) + 1;
+    const r = (i / cfg.C | 0) + 1, c = (i % cfg.C) + 1;
     $('cmTitle').textContent = `第 ${r} 行第 ${c} 列 · 选择颜色`;
     const vw = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1024;
     const vh = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 768;
     if (colorMenuEl && colorMenuEl.style) {
       const pt = (clientX || clientY) ? { x: clientX, y: clientY } : cellCenter(i);
-      const x = Math.min(Math.max(12, pt.x), vw - 230);
-      const y = Math.min(Math.max(12, pt.y), vh - 230);
+      const menuH = currentLevel === 'beginner' ? 230 : 340;
+      const x = Math.min(Math.max(12, pt.x), vw - 240);
+      const y = Math.min(Math.max(12, pt.y), vh - menuH);
       colorMenuEl.style.left = x + 'px';
       colorMenuEl.style.top = y + 'px';
     }
-    if (vw <= 560 && backdropEl && backdropEl.classList) {
+    if (vw <= 580 && backdropEl && backdropEl.classList) {
       backdropEl.classList.add('show');
     }
     colorMenuEl.classList.add('show');
   }
 
   /**
-   * Annotate cell `i` with a color ('g' | 'b' | 'r' | 'clear' | '')
-   * and recompute the exact belief & best recommendation using ONLY color ranges.
+   * Recompute solver score from the ordered history of color annotations,
+   * respecting the rule that Gray ('p') deducts 10 points down to a minimum of 0.
    */
+  function recomputeSolverScore() {
+    let sc = 0;
+    let safeOpened = 0;
+    let penaltyOpened = 0;
+    for (const [, col] of G.colorMarks.entries()) {
+      sc = applyScoreStep(sc, col);
+      if (col === 'p') penaltyOpened++;
+      else safeOpened++;
+    }
+    G.score = sc;
+    G.safeOpened = safeOpened;
+    G.penaltyHits = penaltyOpened;
+    G.clicks = G.colorMarks.size;
+    G.started = G.colorMarks.size > 0;
+    updateHighScore(G.score);
+  }
+
   function markCellColor(i, col) {
-    if (!G || appMode !== 'solver' || i < 0 || i >= N) return;
+    const cfg = lvCfg();
+    if (!G || appMode !== 'solver' || i < 0 || i >= cfg.N) return;
     hideColorMenu();
     vibrate(10);
+
+    // Beginner level only allows g, b, r, clear
+    if (currentLevel === 'beginner' && (col === 's' || col === 'y' || col === 'p')) {
+      return;
+    }
 
     if (col === 'clear' || !col) {
       G.colorMarks.delete(i);
       G.revealed.delete(i);
-    } else if (col === 'g' || col === 'b' || col === 'r') {
+    } else if (col === 'g' || col === 'b' || col === 'r' || col === 's' || col === 'y' || col === 'p') {
+      // To preserve insertion order when re-marking an existing cell, delete first if needed
       G.colorMarks.set(i, col);
       G.revealed.set(i, col);
     }
 
-    let sc = 0;
-    for (const c of G.colorMarks.values()) sc += COLOR_SCORE[c] || 0;
-    G.score = sc;
-    G.clicks = G.colorMarks.size;
-    G.started = G.colorMarks.size > 0;
-    updateHighScore(G.score);
-
+    recomputeSolverScore();
     recalcFromColorMarks();
 
     const el = cells[i];
@@ -822,24 +990,66 @@ __ENGINE__
 
   function recalcFromColorMarks() {
     if (appMode !== 'solver') return;
-    // Strictly filter all 4845 layouts by the color ranges ('g'=>0, 'b'=>1..2, 'r'=>3..4)
-    G.belief = beliefFromColorMarks(G.colorMarks);
-    const mask = [...G.colorMarks.keys()].reduce((m, idx) => m | (1 << idx), 0);
-    G.stats = analyze(G.belief, mask);
-    G.rec = recommend(G.stats, mask, G.belief);
+    if (currentLevel === 'beginner') {
+      // Exact original beginner path
+      G.belief = beliefFromColorMarks(G.colorMarks);
+      const mask = [...G.colorMarks.keys()].reduce((m, idx) => m | (1 << idx), 0);
+      G.stats = analyze(G.belief, mask);
+      G.rec = recommend(G.stats, mask, G.belief);
+      G.beliefCount = G.belief.length;
+    } else {
+      const res = solveLevelMarks(currentLevel, G.colorMarks);
+      G.belief = null;
+      G.beliefCount = res.beliefCount;
+      G.stats = res.stats;
+      G.rec = res.rec;
+    }
   }
 
   /* ---------- Game lifecycle ---------- */
+  function syncLevelVisibility() {
+    const isAdv = currentLevel !== 'beginner';
+    if (document.querySelectorAll) {
+      const advEls = document.querySelectorAll('.adv-only');
+      for (let k = 0; k < advEls.length; k++) {
+        const el = advEls[k];
+        if (el.tagName === 'DIV') {
+          el.style.display = isAdv ? 'flex' : 'none';
+        } else {
+          el.style.display = isAdv ? '' : 'none';
+        }
+      }
+    }
+    // If switching back to beginner while an advanced brush ('s'|'y'|'p') was selected, reset brush to 'g'
+    if (!isAdv && (leftBrush === 's' || leftBrush === 'y' || leftBrush === 'p')) {
+      leftBrush = 'g';
+      const brushBar = $('brushBar');
+      if (brushBar && brushBar.querySelectorAll) {
+        const bbtns = brushBar.querySelectorAll('button[data-brush]');
+        for (let j = 0; j < bbtns.length; j++) {
+          const b = bbtns[j].getAttribute('data-brush') || bbtns[j].dataset.brush;
+          bbtns[j].classList.toggle('active', b === 'g');
+        }
+      }
+    }
+  }
+
   function newGame() {
     clearExplosionTimers();
     hideColorMenu();
+    syncLevelVisibility();
+    const cfg = lvCfg();
+
     G = {
+      level: cfg.id,
       layout: null,
-      belief: PLACEMENTS.slice(),
-      revealed: new Map(),
-      playColorObs: new Map(),
-      colorMarks: new Map(),
+      belief: currentLevel === 'beginner' ? PLACEMENTS.slice() : null,
+      beliefCount: currentLevel === 'beginner' ? PLACEMENTS.length : 0,
+      revealed: new Map(),     // In play mode: cell -> count (0..8) or 'p' (gray penalty mine)
+      colorMarks: new Map(),   // In solver mode: cell -> 'g'|'b'|'r'|'s'|'y'|'p'
       score: 0,
+      safeOpened: 0,
+      penaltyHits: 0,
       over: false,
       started: false,
       coach: true,
@@ -847,31 +1057,36 @@ __ENGINE__
       rec: null,
       stats: null,
       bustCell: -1,
-      passed30: false
+      passedTarget: false
     };
     $('overlay').classList.remove('show');
     buildBoard();
     recalcFromColorMarks();
     render();
     if (appMode === 'solver') {
-      setTip('手机点上方画笔再点格子（或长按格子 0.35 秒），电脑直接右键点击格子标注颜色，系统立即推荐最佳落点。');
+      setTip(currentLevel === 'beginner'
+        ? '手机点上方画笔再点格子（或长按格子 0.35 秒），电脑直接右键点击格子标注颜色，系统立即推荐最佳落点。'
+        : `${cfg.name} (${cfg.R}×${cfg.C})：包含 ${cfg.fatalMines} 颗致命雷 + ${cfg.penaltyMines} 颗灰色扣分雷（点到扣 10 分不结束，最低 0 分），支持标注绿/蓝/红/银/金/灰！`);
     } else {
-      setTip('点开任意一格开局（首点必安全），仅显示颜色，超过 30 分后继续冲高分！');
+      setTip(currentLevel === 'beginner'
+        ? '点开任意一格开局（首点必安全），仅显示颜色，超过 30 分后继续冲高分！'
+        : `${cfg.name}实战模式：点到灰色扣分雷扣 10 分（最低 0 分）且游戏继续；点到致命炸弹爆炸结束。目标 >${cfg.target} 分并冲击最高总分！`);
     }
   }
 
   function buildBoard() {
+    const cfg = lvCfg();
     boardEl.innerHTML = '';
+    boardEl.className = 'cols-' + cfg.C;
     cells.length = 0;
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < cfg.N; i++) {
       const b = document.createElement('button');
       b.className = 'cell';
       b.dataset.i = i;
-      const r = (i / C | 0) + 1, c = (i % C) + 1;
+      const r = (i / cfg.C | 0) + 1, c = (i % cfg.C) + 1;
       b.setAttribute('aria-label', `第 ${r} 行第 ${c} 列`);
       b.innerHTML = '<span class="num"></span>';
 
-      // Long-press touch support for mobile devices
       let lpTimer = 0;
       let lpFired = false;
       let startX = 0, startY = 0;
@@ -920,7 +1135,8 @@ __ENGINE__
     if (!G || appMode !== 'solver') return;
     if (rightClickStyle === 'cycle') {
       const cur = G.colorMarks.get(i) || '';
-      const next = CYCLE_NEXT[cur];
+      const map = currentLevel === 'beginner' ? CYCLE_BEGINNER : CYCLE_ADVANCED;
+      const next = map[cur] !== undefined ? map[cur] : 'g';
       markCellColor(i, next || 'clear');
     } else {
       const cx = coords && coords.clientX ? coords.clientX : 0;
@@ -938,6 +1154,8 @@ __ENGINE__
   function onLeftClick(i, ev) {
     hideColorMenu();
     if (!G) return;
+    const cfg = lvCfg();
+
     if (appMode === 'solver') {
       if (leftBrush === 'popup') {
         const cx = ev && ev.clientX ? ev.clientX : 0;
@@ -959,18 +1177,54 @@ __ENGINE__
     if (G.revealed.has(i)) return;
 
     if (!G.started) {
-      const pool = PLACEMENTS.filter(p => !(p.mask & (1 << i)));
-      G.layout = pool[Math.floor(Math.random() * pool.length)];
+      if (currentLevel === 'beginner') {
+        const pool = PLACEMENTS.filter(p => !(p.mask & (1 << i)));
+        G.layout = pool[Math.floor(Math.random() * pool.length)];
+      } else {
+        G.layout = generateRandomLayout(currentLevel, i);
+      }
       G.started = true;
     }
 
-    if (G.layout.mask & (1 << i)) { bust(i); return; }
+    const isFatal = G.layout.fatalSet
+      ? G.layout.fatalSet.has(i)
+      : Boolean(G.layout.mask & (1 << i));
+    const isPenalty = G.layout.penaltySet
+      ? G.layout.penaltySet.has(i)
+      : false;
+
+    if (isFatal) {
+      bust(i);
+      return;
+    }
+
+    if (isPenalty) {
+      // Penalty mine ('p', Gray): does NOT end the game! Deducts 10 points (clamped at 0).
+      vibrate([30, 30]);
+      const prevScore = G.score;
+      G.revealed.set(i, 'p');
+      G.score = Math.max(0, G.score - 10);
+      G.penaltyHits++;
+      G.clicks++;
+      const el = cells[i];
+      el.classList.add('pop');
+      setTimeout(() => el.classList.remove('pop'), 360);
+      const scEl = $('score');
+      if (scEl && scEl.classList) {
+        scEl.classList.add('penalty-hit');
+        setTimeout(() => scEl.classList.remove('penalty-hit'), 460);
+      }
+      setTip(`点到了灰色扣分雷！得分从 ${prevScore} 分扣至 ${G.score} 分（最低为 0 分），游戏继续，该格已作为雷区线索显露！`);
+      render();
+      return;
+    }
 
     vibrate(10);
     const c = G.layout.cnt[i];
     const prevScore = G.score;
     G.revealed.set(i, c);
     G.score += SCORE[c];
+    G.safeOpened++;
     G.clicks++;
     updateHighScore(G.score);
 
@@ -978,12 +1232,12 @@ __ENGINE__
     el.classList.add('pop');
     setTimeout(() => el.classList.remove('pop'), 360);
 
-    if (prevScore <= 30 && G.score > 30) {
-      G.passed30 = true;
-      setTip(`已突破 30 分达标线（当前 ${G.score} 分）！游戏继续，点开剩余安全格冲击最高总分！`);
+    if (prevScore <= cfg.target && G.score > cfg.target) {
+      G.passedTarget = true;
+      setTip(`已突破 ${cfg.target} 分获胜线（当前 ${G.score} 分）！游戏继续，点开剩余安全格冲击最高总分！`);
     }
 
-    if (G.revealed.size >= TOTAL_SAFE) {
+    if (G.safeOpened >= cfg.safeCells) {
       fullClearWin();
       render();
       return;
@@ -992,13 +1246,15 @@ __ENGINE__
   }
 
   function updateHighScore(sc) {
-    if (sc > highScore) {
-      highScore = sc;
-      try { localStorage.setItem('ms4x5_high', String(highScore)); } catch (_) {}
+    if (sc > highScores[currentLevel]) {
+      highScores[currentLevel] = sc;
+      const key = currentLevel === 'beginner' ? 'ms4x5_high' : (currentLevel === 'intermediate' ? 'ms5x6_high' : 'ms5x8_high');
+      try { localStorage.setItem(key, String(sc)); } catch (_) {}
     }
   }
 
   function bust(i) {
+    const cfg = lvCfg();
     G.over = true;
     G.bustCell = i;
     updateHighScore(G.score);
@@ -1006,27 +1262,30 @@ __ENGINE__
     cells[i].classList.add('shake');
     playExplosionEffect(i);
 
-    const passed = G.score > 30;
-    const title = passed ? '轰！踩雷结束（已达标）' : '轰！踩到炸弹了';
+    const passed = G.score > cfg.target;
+    const title = passed ? '轰！踩到致命炸弹（已达标获胜）' : '轰！踩到致命炸弹了';
     const desc = passed
-      ? `你在第 ${G.clicks + 1} 次点击触发了炸弹！不过本局已突破 30 分及格线，最终成绩定格在 ${G.score} 分。`
-      : `你在第 ${G.clicks + 1} 次点击触发了炸弹（距离 30 分达标线还差 ${31 - G.score} 分）。`;
+      ? `你在第 ${G.clicks + 1} 次点击触发了致命炸弹！不过本局已突破 ${cfg.target} 分获胜线，最终总分定格在 ${G.score} 分。`
+      : `你在第 ${G.clicks + 1} 次点击触发了致命炸弹（距离 >${cfg.target} 分获胜线还差 ${cfg.target + 1 - G.score} 分）。`;
+    const penNote = cfg.penaltyMines > 0 ? ` · 触发扣分雷 ${G.penaltyHits} 颗` : '';
     const fin =
       `本局最终总分 <b>${G.score}</b> 分` +
-      `<span class="subfin">已点开 ${G.clicks} / ${TOTAL_SAFE} 个安全格 · ${passed ? '已达成 >30 分获胜线' : '未满 31 分'} · 历史最高 ${highScore} 分</span>`;
+      `<span class="subfin">已点开 ${G.safeOpened} / ${cfg.safeCells} 个安全格${penNote} · ${passed ? `已达成 >${cfg.target} 分获胜线` : `未满 ${cfg.target + 1} 分`} · 历史最高 ${highScores[currentLevel]} 分</span>`;
     showModal(SVG_MODAL_BOOM, title, desc, fin, 780);
   }
 
   function fullClearWin() {
+    const cfg = lvCfg();
     G.over = true;
     updateHighScore(G.score);
+    const penNote = cfg.penaltyMines > 0 ? ` · 触发扣分雷 ${G.penaltyHits} 颗` : '';
     const fin =
       `本局最终总分 <b>${G.score}</b> 分` +
-      `<span class="subfin">16 / 16 安全格全部点开 · 完美清盘 · 历史最高 ${highScore} 分</span>`;
+      `<span class="subfin">${cfg.safeCells} / ${cfg.safeCells} 安全格全部点开${penNote} · 完美清盘 · 历史最高 ${highScores[currentLevel]} 分</span>`;
     showModal(
       SVG_MODAL_TROPHY,
       '完美清盘 · 全部安全格已点开！',
-      `太强了！你在不显示具体雷数的纯色模式下避开全部 4 颗炸弹，点开了所有 ${TOTAL_SAFE} 个安全格！`,
+      `太强了！你在${cfg.name}纯色模式下避开全部 ${cfg.fatalMines} 颗致命炸弹，点开了所有 ${cfg.safeCells} 个安全格！`,
       fin,
       360
     );
@@ -1044,6 +1303,7 @@ __ENGINE__
   function setTip(t) { $('tip').textContent = t; }
 
   function renderRecommendationBanner(zeroSafeCount, sureMineCount) {
+    const cfg = lvCfg();
     const banner = $('recBanner');
     const titleEl = $('recTitle');
     const detailEl = $('recDetail');
@@ -1051,21 +1311,20 @@ __ENGINE__
     banner.classList.remove('conflict');
 
     if (!G) return;
-    const beliefCount = G.belief ? G.belief.length : 0;
+    const beliefCount = G.beliefCount || 0;
 
     if (beliefCount === 0) {
       banner.classList.add('conflict');
       badgeEl.textContent = '颜色矛盾';
-      titleEl.textContent = '当前标注的颜色组合不存在合法的 4 雷布局（0 种可能）';
-      detailEl.textContent = '请检查是否有某个格子的颜色标错了，点选「清除」或长按/右键该格即可修改。';
+      titleEl.textContent = `当前标注的颜色组合不存在合法的 ${cfg.totalMines} 雷布局（0 种可能）`;
+      detailEl.textContent = '请检查是否有某个格子的颜色或灰色扣分雷标错了，点选「清除」或长按/右键该格即可修改。';
       return;
     }
 
-    const activeCount = appMode === 'solver' ? G.colorMarks.size : G.playColorObs.size;
-    if (activeCount >= TOTAL_SAFE) {
+    if (G.safeOpened >= cfg.safeCells) {
       badgeEl.textContent = '全部找齐';
-      titleEl.textContent = `全部 16 个安全格均已标注完毕！总分 ${G.score} 分`;
-      detailEl.textContent = `剩余 4 个未标注格 100% 是炸弹（共 ${beliefCount} 种等价雷区分布）。`;
+      titleEl.textContent = `全部 ${cfg.safeCells} 个安全格均已标注完毕！总分 ${G.score} 分`;
+      detailEl.textContent = `剩余未标注格全部为雷区（共 ${beliefCount.toLocaleString()} 种等价雷区分布）。`;
       return;
     }
 
@@ -1077,39 +1336,63 @@ __ENGINE__
     }
 
     const s = G.rec;
-    const r = (s.cell / C | 0) + 1, c = (s.cell % C) + 1;
-    const pPct = s.p === 0 ? '0%（必安全）' : (s.p * 100).toFixed(1) + '%';
-    const colDist = `出现绿 ${(s.pGreen * 100).toFixed(0)}% / 蓝 ${(s.pBlue * 100).toFixed(0)}% / 红 ${(s.pRed * 100).toFixed(0)}%`;
+    const r = (s.cell / cfg.C | 0) + 1, c = (s.cell % cfg.C) + 1;
+    const isZero = (s.pAnyMine !== undefined ? s.pAnyMine : s.p) <= 1e-9;
+    const pFatalPct = isZero ? '0%（必安全）' : (s.p * 100).toFixed(1) + '%';
+    const penText = cfg.penaltyMines > 0 && !isZero
+      ? `（致命雷 ${(s.pFatal * 100).toFixed(1)}% / 灰扣分雷 ${(s.pPenalty * 100).toFixed(1)}%）`
+      : '';
+    const extraDist = cfg.penaltyMines > 0
+      ? ` / 银 ${((s.pSilver || 0) * 100).toFixed(0)}% / 金 ${((s.pGold || 0) * 100).toFixed(0)}%`
+      : '';
+    const colDist = `出现绿 ${(s.pGreen * 100).toFixed(0)}% / 蓝 ${(s.pBlue * 100).toFixed(0)}% / 红 ${(s.pRed * 100).toFixed(0)}%${extraDist}`;
 
-    if (activeCount === 0) {
+    if (G.colorMarks.size === 0) {
       badgeEl.textContent = '开局推荐';
       titleEl.textContent = `建议先点 第 ${r} 行第 ${c} 列（四角格）`;
-      detailEl.textContent = `四角格有 49.1% 概率开出绿色（0 雷），一旦开绿可直接锁定周围 3 格 100% 安全。点开后请标注该格颜色！`;
-    } else if (s.p === 0) {
+      detailEl.textContent = `四角格只有 3 个邻格，开出绿色（0 雷）的概率为 ${(s.pGreen * 100).toFixed(1)}%，一旦开绿可直接锁定周围 3 格 100% 安全。点开后请标注该格颜色！`;
+    } else if (isZero) {
       badgeEl.textContent = '100% 必安全';
       titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 含雷率 0% · 期望 +${s.ev.toFixed(1)} 分`;
-      detailEl.textContent = `基于当前已标注颜色的范围约束（剩余 ${beliefCount} 种可能雷区），场上共有 ${zeroSafeCount} 个必安全格、${sureMineCount} 个必雷格。该格 ${colDist}。`;
+      detailEl.textContent = `基于已标注颜色的范围约束（符合雷区 ${beliefCount.toLocaleString()} 种），场上共有 ${zeroSafeCount} 个必安全格、${sureMineCount} 个必雷格。该格 ${colDist}。`;
     } else {
       badgeEl.textContent = '最优破局点';
       const expUnlock = typeof s.expZeroSafe === 'number' ? s.expZeroSafe.toFixed(1) : '0.0';
-      titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 含雷率 ${pPct} · 预计解锁 ${expUnlock} 个必安全格`;
-      detailEl.textContent = `当前无 0% 必安全格（剩余 ${beliefCount} 种可能雷区，已锁定 ${sureMineCount} 个必雷格）。一步前瞻显示该格最易打开安全突破口（期望 +${s.ev.toFixed(1)} 分，若安全则 ${colDist}）。`;
+      titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 致命雷率 ${pFatalPct}${penText} · 预计解锁 ${expUnlock} 个安全格`;
+      detailEl.textContent = `当前无 0% 必安全格（符合雷区 ${beliefCount.toLocaleString()} 种，已锁定 ${sureMineCount} 个必雷格）。该格最易打开安全突破口（若安全期望 +${s.ev.toFixed(1)} 分，${colDist}）。`;
     }
   }
 
   function render() {
+    const cfg = lvCfg();
     const isSolver = appMode === 'solver';
     const showCoach = isSolver && G && G.coach && !G.over;
     let zeroSafeCount = 0;
     let sureMineCount = 0;
 
-    for (let i = 0; i < N; i++) {
+    $('lvBeginnerBtn').classList.toggle('active', currentLevel === 'beginner');
+    $('lvIntermediateBtn').classList.toggle('active', currentLevel === 'intermediate');
+    $('lvAdvancedBtn').classList.toggle('active', currentLevel === 'advanced');
+
+    $('headerSub').textContent = currentLevel === 'beginner'
+      ? '初级 4×5（4 颗致命雷 · >30 分获胜）'
+      : (currentLevel === 'intermediate'
+        ? '中级 5×6（4 致命雷 + 4 灰色扣分雷 · 银5-6/金7-8 · >50 分获胜）'
+        : '高级 5×8（8 致命雷 + 8 灰色扣分雷 · 银5-6/金7-8 · >70 分获胜）');
+
+    $('targetScoreTxt').textContent = `> ${cfg.target} 分`;
+    $('targetClearTxt').textContent = `全开 ${cfg.safeCells} 安全格`;
+    const maxBar = cfg.target <= 30 ? 100 : (cfg.target <= 50 ? 150 : 210);
+    $('barMark').style.left = ((cfg.target / maxBar) * 100).toFixed(1) + '%';
+
+    for (let i = 0; i < cfg.N; i++) {
       const el = cells[i];
-      el.classList.remove('g', 'b', 'r', 'open', 'rec', 'mine', 'exploded', 'sure-safe', 'sure-mine');
+      if (!el) continue;
+      el.classList.remove('g', 'b', 'r', 's', 'y', 'p', 'open', 'rec', 'mine', 'exploded', 'sure-safe', 'sure-mine');
       el.innerHTML = '<span class="num"></span>';
 
       if (isSolver) {
-        const r = (i / C | 0) + 1, c = (i % C) + 1;
+        const r = (i / cfg.C | 0) + 1, c = (i % cfg.C) + 1;
         const coord = document.createElement('span');
         coord.className = 'coord';
         coord.textContent = `${r},${c}`;
@@ -1120,54 +1403,84 @@ __ENGINE__
       const markedCol = isSolver ? G.colorMarks.get(i) : null;
 
       if (isOpenedPlay) {
-        const cnt = G.revealed.get(i);
-        const col = COLOR[cnt];
-        el.classList.add('open', col);
-        const orb = document.createElement('span');
-        orb.className = 'orb';
-        el.appendChild(orb);
-        const pts = document.createElement('span');
-        pts.className = 'pts';
-        pts.textContent = '+' + SCORE[cnt];
-        el.appendChild(pts);
+        const val = G.revealed.get(i);
+        if (val === 'p') {
+          el.classList.add('open', 'p');
+          el.insertAdjacentHTML('beforeend', SVG_PENALTY_MINE);
+          const pts = document.createElement('span');
+          pts.className = 'pts';
+          pts.textContent = '-10';
+          el.appendChild(pts);
+        } else {
+          const col = COLOR[val];
+          el.classList.add('open', col);
+          const orb = document.createElement('span');
+          orb.className = 'orb';
+          el.appendChild(orb);
+          const pts = document.createElement('span');
+          pts.className = 'pts';
+          pts.textContent = '+' + SCORE[val];
+          el.appendChild(pts);
+        }
       } else if (isSolver && markedCol) {
         el.classList.add('open', markedCol);
-        const orb = document.createElement('span');
-        orb.className = 'orb';
-        el.appendChild(orb);
+        if (markedCol === 'p') {
+          el.insertAdjacentHTML('beforeend', SVG_PENALTY_MINE);
+        } else {
+          const orb = document.createElement('span');
+          orb.className = 'orb';
+          el.appendChild(orb);
+        }
         const tag = document.createElement('span');
         tag.className = 'marktag';
-        tag.textContent = markedCol === 'g' ? '0雷' : (markedCol === 'b' ? '1-2雷' : '3-4雷');
+        tag.textContent = MARK_LABEL[markedCol] || '';
         el.appendChild(tag);
         const pts = document.createElement('span');
         pts.className = 'pts';
-        pts.textContent = '+' + COLOR_SCORE[markedCol];
+        const delta = COLOR_SCORE[markedCol];
+        pts.textContent = (delta > 0 ? '+' : '') + delta;
         el.appendChild(pts);
-      } else if (!isSolver && G.over && G.layout && (G.layout.mask & (1 << i))) {
-        el.classList.add('mine');
-        if (G.bustCell === i) {
-          el.classList.add('exploded');
-          el.innerHTML = '<span class="num"></span><span class="crater-ring"></span>' + SVG_MINE_EXPLODED;
-        } else {
-          el.innerHTML = '<span class="num"></span>' + SVG_MINE_REVEALED;
+      } else if (!isSolver && G.over && G.layout) {
+        const isFatal = G.layout.fatalSet
+          ? G.layout.fatalSet.has(i)
+          : Boolean(G.layout.mask & (1 << i));
+        const isPenalty = G.layout.penaltySet
+          ? G.layout.penaltySet.has(i)
+          : false;
+        if (isFatal) {
+          el.classList.add('mine');
+          if (G.bustCell === i) {
+            el.classList.add('exploded');
+            el.innerHTML = '<span class="num"></span><span class="crater-ring"></span>' + SVG_MINE_EXPLODED;
+          } else {
+            el.innerHTML = '<span class="num"></span>' + SVG_MINE_REVEALED;
+          }
+        } else if (isPenalty) {
+          el.classList.add('open', 'p');
+          el.insertAdjacentHTML('beforeend', SVG_PENALTY_MINE);
+          const pts = document.createElement('span');
+          pts.className = 'pts';
+          pts.textContent = '扣分雷';
+          el.appendChild(pts);
         }
-      } else if (showCoach && G.stats && G.stats[i] && G.belief && G.belief.length > 0) {
+      } else if (showCoach && G.stats && G.stats[i] && G.beliefCount > 0) {
         const s = G.stats[i];
-        const pct = s.p * 100;
-        if (s.p === 0) {
+        const anyMineP = s.pAnyMine !== undefined ? s.pAnyMine : s.p;
+        const fatalPct = s.p * 100;
+        if (anyMineP <= 1e-9) {
           zeroSafeCount++;
           el.classList.add('sure-safe');
-        } else if (s.p >= 1 - 1e-12) {
+        } else if (anyMineP >= 1 - 1e-7) {
           sureMineCount++;
           el.classList.add('sure-mine');
         }
         const tag = document.createElement('span');
-        if (s.p >= 1 - 1e-12) {
+        if (anyMineP >= 1 - 1e-7) {
           tag.className = 'prob certain-mine';
           tag.textContent = '必雷';
         } else {
-          tag.className = 'prob ' + (pct === 0 ? 'safe' : pct < 15 ? 'warn' : 'bad');
-          tag.textContent = pct === 0 ? '0%安全' : (pct < 1 ? '<1%' : Math.round(pct) + '%');
+          tag.className = 'prob ' + (anyMineP <= 1e-9 ? 'safe' : fatalPct < 15 ? 'warn' : 'bad');
+          tag.textContent = anyMineP <= 1e-9 ? '0%安全' : (fatalPct < 1 ? '<1%' : Math.round(fatalPct) + '%');
           const evEl = document.createElement('span');
           evEl.className = 'evtag';
           evEl.textContent = 'E+' + s.ev.toFixed(1);
@@ -1184,55 +1497,57 @@ __ENGINE__
     }
 
     const scVal = G ? G.score : 0;
-    const passed = scVal > 30;
+    const passed = scVal > cfg.target;
     $('score').textContent = scVal;
     $('sScore').textContent = scVal + ' 分';
     $('scoreBox').classList.toggle('qualified', passed);
 
     const badge = $('passBadge');
     badge.classList.remove('pass', 'warn');
-    if (isSolver && G && G.belief && G.belief.length === 0) {
+    if (isSolver && G && G.beliefCount === 0) {
       badge.classList.add('warn');
       badge.textContent = '颜色标注冲突';
     } else if (passed) {
       badge.classList.add('pass');
-      badge.textContent = '已达标 (>30) · 冲刺最高分';
+      badge.textContent = `已达标 (>${cfg.target}) · 冲刺最高分`;
     } else {
-      badge.textContent = '目标 > 30 分';
+      badge.textContent = `目标 > ${cfg.target} 分`;
     }
 
-    $('highScoreTxt').textContent = `历史最高：${highScore} 分`;
+    $('highScoreTxt').textContent = `历史最高：${highScores[currentLevel]} 分`;
 
-    const fill = Math.min(scVal, 100);
+    const fill = Math.min(100, (scVal / maxBar) * 100);
     $('fill').style.width = fill + '%';
 
-    const openedCount = isSolver ? (G ? G.colorMarks.size : 0) : (G ? G.revealed.size : 0);
-    const remSafe = Math.max(0, TOTAL_SAFE - openedCount);
+    const safeCount = G ? G.safeOpened : 0;
+    const remSafe = Math.max(0, cfg.safeCells - safeCount);
 
     if (isSolver) {
       $('progressTxt').textContent = passed
-        ? `已达标 (>30)！当前已标注 ${openedCount}/${TOTAL_SAFE} 个安全格`
-        : `距 30 分达标线还差 ${31 - scVal} 分 · 已标注 ${openedCount}/${TOTAL_SAFE} 个安全格`;
-      $('stateTxt').textContent = G && G.belief && G.belief.length === 0
+        ? `已达标 (>${cfg.target})！当前已标注 ${safeCount}/${cfg.safeCells} 个安全格`
+        : `距 >${cfg.target} 分达标线还差 ${cfg.target + 1 - scVal} 分 · 已标注 ${safeCount}/${cfg.safeCells} 个安全格`;
+      $('stateTxt').textContent = G && G.beliefCount === 0
         ? '标注冲突'
-        : (openedCount === 0 ? '等待标注' : '实时推理中');
+        : (G.colorMarks.size === 0 ? '等待标注' : '实时推理中');
     } else {
       if (!G || !G.started) {
-        $('progressTxt').textContent = '还差 31 分达成及格线 · 共 16 个安全格';
+        $('progressTxt').textContent = `还差 ${cfg.target + 1} 分达成获胜线 · 共 ${cfg.safeCells} 个安全格`;
       } else if (G.over) {
-        $('progressTxt').textContent = `本局定格：总分 ${scVal} 分（点开 ${openedCount}/${TOTAL_SAFE} 安全格）`;
+        $('progressTxt').textContent = `本局定格：总分 ${scVal} 分（点开 ${safeCount}/${cfg.safeCells} 安全格）`;
       } else if (!passed) {
-        $('progressTxt').textContent = `距 30 分达标线还差 ${31 - scVal} 分 · 剩余 ${remSafe} 个安全格`;
+        $('progressTxt').textContent = `距 >${cfg.target} 分获胜线还差 ${cfg.target + 1 - scVal} 分 · 剩余 ${remSafe} 个安全格`;
       } else {
-        $('progressTxt').textContent = `已超 30 分线！还剩 ${remSafe} 个安全格可继续刷分`;
+        $('progressTxt').textContent = `已超 ${cfg.target} 分线！还剩 ${remSafe} 个安全格可继续刷分`;
       }
       $('stateTxt').textContent = !G || !G.started ? '等待开局' : (G.over ? '本局结束' : (passed ? '冲分阶段' : '进行中'));
     }
 
     $('ctrlTitle').textContent = isSolver ? '标注 & 棋盘操作' : '游戏操作';
     $('statTitle').textContent = isSolver ? '纯色范围推理局面' : '本局实时统计';
-    $('sClicksLabel').textContent = isSolver ? '已标注 / 安全格' : '已点开 / 安全格';
-    $('sClicks').textContent = `${openedCount} / ${TOTAL_SAFE}`;
+    $('sClicksLabel').textContent = isSolver ? '已标注安全格' : '已点开安全格';
+    $('sClicks').textContent = `${safeCount} / ${cfg.safeCells}`;
+    $('sPenaltyHit').textContent = `${G ? G.penaltyHits : 0} / ${cfg.penaltyMines}`;
+    $('rowPenaltyHit').style.display = cfg.penaltyMines > 0 ? 'flex' : 'none';
     $('sRemSafe').textContent = remSafe + ' 格';
     $('rowRemSafe').style.display = isSolver ? 'none' : 'flex';
     $('rowZeroSafe').style.display = isSolver ? 'flex' : 'none';
@@ -1240,10 +1555,10 @@ __ENGINE__
     $('rowBelief').style.display = isSolver ? 'flex' : 'none';
     $('rowEV').style.display = isSolver ? 'flex' : 'none';
 
-    $('sZeroSafe').textContent = G && G.belief && G.belief.length ? zeroSafeCount + ' 格' : '0 格';
-    $('sSureMine').textContent = G && G.belief && G.belief.length ? sureMineCount + ' 格' : '0 格';
-    $('sBelief').textContent = G && G.belief ? G.belief.length + ' 种' : '—';
-    const ev = G && G.rec && !G.over && G.belief && G.belief.length ? G.rec.ev.toFixed(1) : '—';
+    $('sZeroSafe').textContent = G && G.beliefCount ? zeroSafeCount + ' 格' : '0 格';
+    $('sSureMine').textContent = G && G.beliefCount ? sureMineCount + ' 格' : '0 格';
+    $('sBelief').textContent = G && G.beliefCount !== undefined ? G.beliefCount.toLocaleString() + ' 种' : '—';
+    const ev = G && G.rec && !G.over && G.beliefCount ? G.rec.ev.toFixed(1) : '—';
     $('sEV').textContent = ev + (ev !== '—' ? ' 分/格' : '');
 
     $('rightModeBtn').style.display = isSolver ? 'flex' : 'none';
@@ -1261,12 +1576,22 @@ __ENGINE__
     setTimeout(() => sc.classList.remove('pop'), 160);
   }
 
-  /* ---------- Mode & UI Controls ---------- */
+  /* ---------- Level, Mode & UI Controls ---------- */
+  function setLevel(lv) {
+    if (!LEVELS[lv] || currentLevel === lv) return;
+    currentLevel = lv;
+    newGame();
+  }
+
   function setAppMode(m) {
     if (appMode === m) return;
     appMode = m;
     newGame();
   }
+
+  $('lvBeginnerBtn').onclick = () => setLevel('beginner');
+  $('lvIntermediateBtn').onclick = () => setLevel('intermediate');
+  $('lvAdvancedBtn').onclick = () => setLevel('advanced');
 
   $('modeSolverBtn').onclick = () => setAppMode('solver');
   $('modePlayBtn').onclick = () => setAppMode('play');
@@ -1279,8 +1604,8 @@ __ENGINE__
     rightClickStyle = rightClickStyle === 'menu' ? 'cycle' : 'menu';
     hideColorMenu();
     setTip(rightClickStyle === 'menu'
-      ? '已切换为「右键/长按弹窗选色」：在格子上点右键或手机长按选择绿/蓝/红/清除。'
-      : '已切换为「右键/长按循环切换」：在格子上点右键或长按依次按 绿 → 蓝 → 红 → 清除 循环。');
+      ? '已切换为「右键/长按弹窗选色」：在格子上点右键或手机长按选择颜色。'
+      : '已切换为「右键/长按循环切换」：在格子上点右键或长按依次循环切换颜色。');
     render();
   };
 
@@ -1327,11 +1652,18 @@ __ENGINE__
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') hideColorMenu();
     if (e.key === 'r' || e.key === 'R') newGame();
-    if (e.key === 'c' || e.key === 'C') $('coachBtn').onclick();
+    if (e.key === 'c' || e.key === 'C') { if (appMode === 'solver') $('coachBtn').onclick(); }
   });
 
   if (typeof globalThis !== 'undefined') {
-    globalThis.MG_APP = { markCellColor, setAppMode, newGame, getState: () => G };
+    globalThis.MG_APP = {
+      markCellColor,
+      setAppMode,
+      setLevel,
+      newGame,
+      getState: () => G,
+      getLevel: () => currentLevel
+    };
   }
 
   newGame();
