@@ -1,0 +1,1564 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,viewport-fit=cover">
+<meta name="theme-color" content="#080c17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>扫雷 4×5 · 纯色高分挑战 &amp; 标注推理器</title>
+<style>
+  :root{
+    --bg:#080c17; --bg2:#0e1526; --panel:#111a2e; --line:#22304d;
+    --txt:#e8eefc; --dim:#8ea0c2;
+    --green:#22c55e; --blue:#3b82f6; --red:#ef4444; --gold:#fbbf24;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{min-height:100%}
+  body{
+    margin:0;
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","WenQuanYi Micro Hei","Source Han Sans SC",system-ui,-apple-system,sans-serif;
+    color:var(--txt); background:
+      radial-gradient(900px 600px at 15% -10%, #16233f 0%, transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, #1b1630 0%, transparent 55%),
+      var(--bg);
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:calc(18px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
+    overflow-x:hidden;
+  }
+  body.screen-shake{animation:screenShake .62s cubic-bezier(.36,.07,.19,.97) both}
+  @keyframes screenShake{
+    0%,100%{transform:translate3d(0,0,0)}
+    10%{transform:translate3d(-11px,-7px,0) rotate(-.8deg)}
+    20%{transform:translate3d(10px,6px,0) rotate(.8deg)}
+    30%{transform:translate3d(-9px,5px,0) rotate(-.5deg)}
+    45%{transform:translate3d(8px,-5px,0) rotate(.5deg)}
+    60%{transform:translate3d(-6px,4px,0) rotate(-.3deg)}
+    75%{transform:translate3d(4px,-3px,0)}
+    90%{transform:translate3d(-2px,2px,0)}
+  }
+
+  .app{width:min(1060px,100%); position:relative; z-index:2}
+  header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-wrap:wrap}
+  .titlegroup{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+  h1{font-size:20px; letter-spacing:.4px; margin:0; font-weight:650}
+  h1 b{color:var(--gold)}
+  .sub{color:var(--dim); font-size:12.5px}
+  .sub kbd{background:#1a2540;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;font:inherit;font-size:11.5px}
+
+  /* Mode Switcher */
+  .modeswitch{display:inline-flex; background:#0d1526; border:1px solid #263658; border-radius:12px; padding:3px; gap:4px}
+  .modebtn{font:inherit; font-size:13px; font-weight:650; color:var(--dim); background:transparent; border:none;
+    padding:7px 13px; border-radius:9px; cursor:pointer; transition:.18s; touch-action:manipulation}
+  .modebtn:hover{color:var(--txt)}
+  .modebtn.active{background:linear-gradient(180deg,#2b3d6b,#1e2c50); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.35)}
+
+  .stage{display:grid; grid-template-columns:minmax(0,1fr) 292px; gap:20px; margin-top:10px; align-items:start}
+
+  .panel{background:linear-gradient(180deg,rgba(20,30,52,.92),rgba(13,20,36,.92));
+    border:1px solid var(--line); border-radius:20px; box-shadow:0 20px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04)}
+
+  /* ---------- score & recommendation header ---------- */
+  .scorebox{padding:14px 16px 12px; margin-bottom:12px; position:relative; overflow:hidden; transition:border-color .3s, box-shadow .3s}
+  .scorebox.qualified{border-color:rgba(251,191,36,.55); box-shadow:0 20px 50px rgba(0,0,0,.45), 0 0 28px rgba(251,191,36,.15)}
+  .scoreline{display:flex; align-items:flex-end; justify-content:space-between; gap:10px}
+  .scorewrap{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+  .score{font-size:42px; line-height:1; font-weight:800; font-variant-numeric:tabular-nums;
+    background:linear-gradient(180deg,#fff,#9db4de); -webkit-background-clip:text; background-clip:text; color:transparent;
+    transition:transform .16s ease}
+  .scorebox.qualified .score{background:linear-gradient(180deg,#fff7d6,#fbbf24); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .score.pop{transform:scale(1.14)}
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:99px;
+    background:rgba(30,45,78,.8); border:1px solid #304775; color:#a9c1ec; transition:.25s}
+  .badge.pass{background:linear-gradient(90deg,rgba(251,191,36,.22),rgba(245,158,11,.12)); border-color:var(--gold); color:#fde68a}
+  .badge.warn{background:rgba(239,68,68,.2); border-color:#ef4444; color:#fca5a5}
+  .target{color:var(--dim); font-size:12px; text-align:right; line-height:1.45}
+  .target b{color:var(--gold); font-size:14.5px}
+  .bar{position:relative; height:9px; border-radius:99px; background:#0a1120; margin-top:10px; overflow:hidden;
+    border:1px solid #1d2942}
+  .fill{position:absolute; inset:0 auto 0 0; width:0; border-radius:99px;
+    background:linear-gradient(90deg,#1d4ed8,#3b82f6 35%,#22c55e 65%,#fbbf24);
+    transition:width .35s cubic-bezier(.2,.8,.2,1)}
+  .mark{position:absolute; top:-2px; bottom:-2px; width:2px; background:rgba(251,191,36,.95); left:30%; z-index:2;
+    box-shadow:0 0 6px rgba(251,191,36,.9)}
+  .meta{display:flex; justify-content:space-between; color:var(--dim); font-size:11.5px; margin-top:7px; gap:8px; flex-wrap:wrap}
+
+  /* Assistant Recommendation Banner */
+  .recbanner{
+    margin-bottom:12px; padding:12px 15px; border-radius:16px;
+    background:linear-gradient(90deg,rgba(251,191,36,.14),rgba(30,45,78,.55));
+    border:1px solid rgba(251,191,36,.45);
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  }
+  .recbanner.conflict{
+    background:linear-gradient(90deg,rgba(239,68,68,.18),rgba(40,18,28,.65));
+    border-color:rgba(239,68,68,.6);
+  }
+  .recbanner .rec-main{font-size:14px; font-weight:750; color:#fef08a; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .recbanner.conflict .rec-main{color:#fca5a5}
+  .recbanner .rec-sub{font-size:12px; color:var(--dim); margin-top:3px; line-height:1.45}
+  .recbanner .rec-tag{font-size:11px; font-weight:800; padding:2.5px 8px; border-radius:7px; background:var(--gold); color:#0b1020; flex:none}
+
+  /* ---------- Quick Color Dock (right above board, great for mobile & PC) ---------- */
+  .colordock{
+    margin-bottom:12px; padding:10px 12px; border-radius:16px;
+    background:linear-gradient(180deg,rgba(19,29,52,.94),rgba(12,19,35,.94));
+    border:1px solid #26385c;
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .colordock .dock-label{font-size:12px; color:var(--dim); font-weight:650; display:flex; align-items:center; gap:6px}
+  .colordock .dock-label span.hint-touch{color:#93c5fd; font-weight:600}
+  .brushbar{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; flex:1; min-width:260px}
+  .brushbtn{
+    font:inherit; font-size:12.5px; font-weight:750; padding:8px 6px; border-radius:10px; cursor:pointer;
+    background:#152038; border:1px solid #26385c; color:var(--dim);
+    display:flex; align-items:center; justify-content:center; gap:5px; transition:.15s;
+    touch-action:manipulation; user-select:none;
+  }
+  .brushbtn:hover{color:var(--txt); border-color:#466299}
+  .brushbtn:active{transform:scale(.96)}
+  .brushbtn.active{color:#fff; border-color:var(--gold); background:#23355e; box-shadow:0 0 0 1px rgba(251,191,36,.45) inset, 0 4px 12px rgba(0,0,0,.3)}
+
+  /* ---------- board ---------- */
+  .boardwrap{padding:16px; position:relative}
+  #board{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; touch-action:manipulation}
+  .cell{
+    position:relative; aspect-ratio:1/1; border:none; border-radius:14px; cursor:pointer;
+    background:linear-gradient(160deg,#1d2a44,#151f34);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 4px 10px rgba(0,0,0,.35);
+    color:#fff; font:inherit; display:grid; place-items:center; padding:0;
+    transition:transform .12s ease, box-shadow .18s ease, background .22s ease;
+    overflow:hidden; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+    touch-action:manipulation;
+  }
+  .cell::after{content:""; position:absolute; inset:0;
+    background-image:radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px);
+    background-size:9px 9px; opacity:.35; pointer-events:none; transition:opacity .2s}
+  @media (hover:hover){
+    .cell:not(.open):not(.mine):hover{transform:translateY(-3px); box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 12px 22px rgba(0,0,0,.45)}
+  }
+  .cell:not(.open):not(.mine):active{transform:scale(.95)}
+  .cell .num{display:none}
+  .cell.open{cursor:pointer}
+  .cell.open::after{opacity:0}
+
+  /* Coord label on cells */
+  .cell .coord{
+    position:absolute; right:6px; top:4px; font-size:9.5px; color:rgba(142,160,194,.42);
+    font-weight:650; pointer-events:none; line-height:1;
+  }
+  .cell.open .coord{color:rgba(255,255,255,.68)}
+
+  /* Color-only cells: pure luminous tile + subtle inner emblem */
+  .cell .orb{
+    width:44%; height:44%; border-radius:50%; opacity:0; transform:scale(.4);
+    transition:opacity .25s ease, transform .32s cubic-bezier(.2,1.5,.4,1);
+    pointer-events:none;
+  }
+  .cell.open .orb{opacity:1; transform:scale(1)}
+  .cell.g{
+    background:radial-gradient(circle at 32% 28%, #4ade80 0%, #16a34a 58%, #0f6e31 100%);
+    box-shadow:0 0 0 1px rgba(134,239,172,.55) inset, 0 8px 22px rgba(34,197,94,.30);
+  }
+  .cell.g .orb{
+    background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.75), rgba(187,247,208,.2) 65%, transparent 72%);
+    box-shadow:0 0 16px rgba(255,255,255,.35), inset 0 0 0 2px rgba(255,255,255,.35);
+  }
+  .cell.b{
+    background:radial-gradient(circle at 32% 28%, #60a5fa 0%, #2563eb 58%, #1a3fa3 100%);
+    box-shadow:0 0 0 1px rgba(147,197,253,.55) inset, 0 8px 22px rgba(59,130,246,.32);
+  }
+  .cell.b .orb{
+    background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.8), rgba(191,219,254,.22) 65%, transparent 72%);
+    box-shadow:0 0 18px rgba(255,255,255,.38), inset 0 0 0 2px rgba(255,255,255,.38);
+  }
+  .cell.r{
+    background:radial-gradient(circle at 32% 28%, #fb7185 0%, #e11d48 55%, #9f1239 100%);
+    box-shadow:0 0 0 1px rgba(254,202,202,.6) inset, 0 8px 26px rgba(239,68,68,.38);
+  }
+  .cell.r .orb{
+    background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.88), rgba(254,202,202,.28) 65%, transparent 72%);
+    box-shadow:0 0 22px rgba(255,255,255,.5), inset 0 0 0 2px rgba(255,255,255,.45);
+  }
+
+  /* Manual color annotation badge */
+  .cell .marktag{
+    position:absolute; left:6px; bottom:5px; font-size:9.5px; font-weight:750;
+    padding:1px 4px; border-radius:4px; background:rgba(0,0,0,.38); color:#fff;
+    pointer-events:none; letter-spacing:.1px; line-height:1.2;
+  }
+
+  .cell .pts{position:absolute; right:6px; bottom:5px; font-size:11px; font-weight:800; opacity:.92;
+    text-shadow:0 1px 4px rgba(0,0,0,.45); letter-spacing:.1px; pointer-events:none; line-height:1}
+  .cell.pop{animation:pop .34s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{0%{transform:scale(.65); opacity:.3} 60%{transform:scale(1.06)} 100%{transform:scale(1)}}
+
+  /* Mine & Explosion styling on cells */
+  .cell.mine{
+    cursor:default;
+    background:radial-gradient(circle at 50% 50%, #45101a 0%, #24080d 75%, #160508 100%);
+    box-shadow:0 0 0 1px rgba(239,68,68,.55) inset, 0 6px 18px rgba(0,0,0,.5);
+  }
+  .cell.mine::after{opacity:0}
+  .cell.mine.exploded{
+    background:radial-gradient(circle at 50% 50%, #ff8a00 0%, #dc2626 42%, #450a0a 78%, #110406 100%);
+    box-shadow:0 0 0 2px #fbbf24 inset, 0 0 32px rgba(239,68,68,.85);
+    animation:blastCell .7s cubic-bezier(.16,1,.3,1);
+    z-index:5;
+  }
+  @keyframes blastCell{
+    0%{transform:scale(1.38); filter:brightness(2.5)}
+    35%{transform:scale(.9) rotate(-3deg); filter:brightness(1.5)}
+    65%{transform:scale(1.07) rotate(2deg)}
+    100%{transform:scale(1) rotate(0); filter:brightness(1)}
+  }
+  .cell .bomb-svg{width:64%; height:64%; pointer-events:none; filter:drop-shadow(0 3px 6px rgba(0,0,0,.6))}
+  .cell.exploded .crater-ring{
+    position:absolute; inset:-6px; border-radius:18px;
+    border:3px solid rgba(251,191,36,.85);
+    animation:ringExpand .65s cubic-bezier(.16,1,.3,1) forwards;
+    pointer-events:none;
+  }
+  @keyframes ringExpand{
+    0%{transform:scale(.3); opacity:1}
+    100%{transform:scale(1.55); opacity:0}
+  }
+
+  /* Probability & EV overlay on unrevealed cells */
+  .cell .prob{position:absolute; left:6px; top:5px; font-size:10.5px; font-weight:800; letter-spacing:.1px; opacity:.96; pointer-events:none; line-height:1.15}
+  .cell .prob.safe{color:#7dfab0}
+  .cell .prob.warn{color:#ffd166}
+  .cell .prob.bad{color:#ff8b8b}
+  .cell .prob.certain-mine{color:#ff4d4d; background:rgba(69,10,10,.88); padding:1px 4px; border-radius:4px; border:1px solid rgba(239,68,68,.6); font-size:9.5px}
+  .cell .evtag{position:absolute; left:6px; bottom:5px; font-size:9.5px; color:#b8c7e6; font-weight:650; opacity:.88; pointer-events:none; line-height:1}
+  .cell.sure-safe:not(.open){box-shadow:inset 0 0 0 1.5px rgba(34,197,94,.65), 0 4px 12px rgba(34,197,94,.16)}
+  .cell.sure-mine:not(.open){background:linear-gradient(160deg,#2b1219,#1a0b10); box-shadow:inset 0 0 0 1.5px rgba(239,68,68,.65)}
+  .cell.rec{outline:2.5px solid var(--gold); outline-offset:2px; box-shadow:0 0 22px rgba(251,191,36,.35)}
+  .cell.rec:not(.open)::before{content:"推荐"; position:absolute; right:4px; bottom:4px; font-size:9.5px; color:#0b1020;
+    background:var(--gold); border-radius:4px; padding:1px 4px; font-weight:800; z-index:2; line-height:1.15}
+
+  /* ---------- Right-click / Long-press floating color palette ---------- */
+  .menu-backdrop{
+    position:fixed; inset:0; z-index:64; display:none; background:rgba(3,7,15,.45);
+    backdrop-filter:blur(2px);
+  }
+  .menu-backdrop.show{display:block}
+  .color-menu{
+    position:fixed; z-index:65; display:none;
+    background:rgba(13,21,38,.97); border:1px solid #385082; border-radius:16px;
+    padding:10px; box-shadow:0 18px 42px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.06) inset;
+    backdrop-filter:blur(12px);
+    min-width:215px;
+  }
+  .color-menu.show{display:block; animation:menuPop .15s cubic-bezier(.2,1.3,.4,1)}
+  @keyframes menuPop{from{transform:scale(.92); opacity:0}to{transform:scale(1); opacity:1}}
+  .color-menu .cm-title{font-size:12px; color:var(--dim); font-weight:700; padding:3px 7px 8px; border-bottom:1px solid #223252; margin-bottom:7px; display:flex; justify-content:space-between; align-items:center}
+  .color-menu .cm-grid{display:grid; grid-template-columns:1fr; gap:6px}
+  .color-menu button{
+    font:inherit; font-size:13.5px; font-weight:750; color:var(--txt);
+    background:#17233d; border:1px solid #283a61; border-radius:11px;
+    padding:10px 12px; cursor:pointer; display:flex; align-items:center; gap:9px;
+    transition:.12s; text-align:left; touch-action:manipulation;
+  }
+  .color-menu button:hover,.color-menu button:active{border-color:#5a7cc2; background:#21345c}
+  .color-menu button .dot{width:15px; height:15px; border-radius:4px; flex:none}
+  .color-menu button .dot.g{background:var(--green); box-shadow:0 0 8px rgba(34,197,94,.6)}
+  .color-menu button .dot.b{background:var(--blue); box-shadow:0 0 8px rgba(59,130,246,.6)}
+  .color-menu button .dot.r{background:var(--red); box-shadow:0 0 8px rgba(239,68,68,.6)}
+  .color-menu button .dot.c{background:#334155; border:1px dashed #94a3b8}
+  .color-menu button .cm-range{margin-left:auto; font-size:11.5px; color:var(--dim); font-weight:600}
+
+  /* ---------- side ---------- */
+  .side{display:flex; flex-direction:column; gap:14px}
+  .card{padding:14px 15px}
+  .card h3{margin:0 0 10px; font-size:12.5px; color:var(--dim); font-weight:650; letter-spacing:.4px; text-transform:uppercase}
+  .btns{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  button.btn{font:inherit; font-size:13px; font-weight:650; color:var(--txt); cursor:pointer;
+    background:#1a2540; border:1px solid #2b3a5c; border-radius:11px; padding:10px 11px;
+    transition:.15s; display:flex; align-items:center; justify-content:center; gap:6px;
+    touch-action:manipulation; user-select:none}
+  button.btn:hover{background:#22305a; border-color:#3d5480}
+  button.btn:active{transform:scale(.97)}
+  button.btn.on{background:linear-gradient(180deg,#2b3d6b,#1e2c50); border-color:#5b7bc0; color:#cfe0ff}
+  button.btn.wide{grid-column:1/-1; background:linear-gradient(180deg,#1f3a2e,#152a21); border-color:#2f6b4c; color:#c9f7dc}
+  button.btn.wide:hover{background:linear-gradient(180deg,#255040,#183527)}
+  .stat{display:flex; justify-content:space-between; font-size:13px; padding:4.5px 0; color:var(--dim)}
+  .stat b{color:var(--txt); font-variant-numeric:tabular-nums}
+  .stat b.gold{color:var(--gold)}
+  .legend{display:flex; flex-direction:column; gap:8px; font-size:12.5px; color:var(--dim)}
+  .legend div{display:flex; align-items:center; gap:8px}
+  .sw{width:13px;height:13px;border-radius:4px;flex:none}
+  .sw.g{background:var(--green)} .sw.b{background:var(--blue)} .sw.r{background:var(--red)}
+  .tip{font-size:12px; color:var(--dim); line-height:1.55; margin-top:8px}
+
+  /* ---------- explosion canvas & flash ---------- */
+  #fxCanvas{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:45}
+  .blast-flash{position:fixed; inset:0; pointer-events:none; z-index:44; opacity:0;
+    background:radial-gradient(circle at var(--bx,50%) var(--by,50%), rgba(255,230,150,.85), rgba(239,68,68,.55) 40%, rgba(15,5,5,0) 75%)}
+  .blast-flash.fire{animation:flashBang .55s ease-out forwards}
+  @keyframes flashBang{0%{opacity:1} 100%{opacity:0}}
+
+  /* ---------- overlay ---------- */
+  .overlay{position:fixed; inset:0; display:none; place-items:center; padding:18px;
+    background:rgba(4,8,16,.74); backdrop-filter:blur(6px); z-index:50}
+  .overlay.show{display:grid; animation:fade .25s}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .modal{width:min(440px,100%); text-align:center; padding:24px 22px 20px; border-radius:22px;
+    background:linear-gradient(180deg,#16203a,#0d1526); border:1px solid #2b3a5c;
+    box-shadow:0 30px 80px rgba(0,0,0,.6); animation:rise .3s cubic-bezier(.2,1.3,.4,1)}
+  @keyframes rise{from{transform:translateY(16px) scale(.96); opacity:0}to{transform:none;opacity:1}}
+  .modal .big{width:64px; height:64px; margin:0 auto 10px; display:grid; place-items:center; border-radius:50%;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1)}
+  .modal h2{margin:0 0 8px; font-size:21px}
+  .modal p{color:var(--dim); font-size:13.5px; line-height:1.55; margin:0 0 15px}
+  .modal .fin{font-size:14.5px; color:var(--txt); margin-bottom:16px; padding:12px 14px; border-radius:14px;
+    background:rgba(8,13,26,.65); border:1px solid #1f2d4a}
+  .modal .fin b{font-size:28px; color:var(--gold); font-variant-numeric:tabular-nums}
+  .modal .fin .subfin{display:block; font-size:12px; color:var(--dim); margin-top:4px}
+  .modal .btns{grid-template-columns:1fr 1fr}
+
+  details.rules{margin-top:14px; color:var(--dim); font-size:12.5px}
+  details.rules summary{cursor:pointer; color:#a9bde0; font-weight:600; list-style:none; padding:4px 0}
+  details.rules summary::-webkit-details-marker{display:none}
+  details.rules summary::before{content:"▸ "; color:#5b7bc0}
+  details.rules[open] summary::before{content:"▾ "}
+  details.rules .body{margin-top:8px; line-height:1.7; border-left:2px solid #24314d; padding-left:12px}
+  details.rules b{color:#d6e3ff}
+
+  /* ---------- Mobile & Tablet Responsive Adaptations ---------- */
+  @media (max-width:860px){
+    .stage{grid-template-columns:1fr; gap:14px}
+    .side{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+    .side .card:first-child{grid-column:1/-1}
+  }
+  @media (max-width:560px){
+    body{
+      padding:calc(10px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(10px + env(safe-area-inset-left, 0px));
+    }
+    header{gap:8px; margin-bottom:8px}
+    h1{font-size:17.5px}
+    .sub{font-size:11.5px}
+    .modeswitch{width:100%; display:grid; grid-template-columns:1fr 1fr}
+    .modebtn{padding:8px 6px; font-size:12.5px; text-align:center}
+
+    .scorebox{padding:11px 13px 10px; margin-bottom:10px; border-radius:16px}
+    .score{font-size:34px}
+    .target{font-size:11px}
+    .target b{font-size:13px}
+    .meta{font-size:11px; margin-top:6px}
+
+    .recbanner{padding:10px 12px; margin-bottom:10px; border-radius:14px}
+    .recbanner .rec-main{font-size:13px; gap:6px}
+    .recbanner .rec-sub{font-size:11.5px}
+
+    .colordock{padding:9px 10px; margin-bottom:10px; border-radius:14px; gap:7px}
+    .colordock .dock-label{width:100%; justify-content:space-between; font-size:11.5px}
+    .brushbar{width:100%; min-width:0; gap:5px}
+    .brushbtn{padding:9px 3px; font-size:12px; border-radius:9px}
+
+    .boardwrap{padding:10px; border-radius:16px}
+    #board{gap:7px}
+    .cell{border-radius:11px}
+    .cell .coord{right:4px; top:3px; font-size:8.5px}
+    .cell .prob{left:4px; top:3px; font-size:9.5px}
+    .cell .prob.certain-mine{font-size:8.5px; padding:1px 3px}
+    .cell .evtag{left:4px; bottom:3px; font-size:8.5px}
+    .cell .marktag{left:4px; bottom:3px; font-size:8.5px; padding:0 3px}
+    .cell .pts{right:4px; bottom:3px; font-size:9.5px}
+    .cell.rec{outline-width:2px; outline-offset:1px}
+    .cell.rec:not(.open)::before{right:3px; bottom:3px; font-size:8.5px; padding:1px 3px}
+
+    .side{grid-template-columns:1fr; gap:10px}
+    .card{padding:12px 13px; border-radius:16px}
+
+    /* Bottom-sheet style color menu on narrow mobile screens for easy thumb reach */
+    .color-menu{
+      left:12px !important; right:12px !important; bottom:calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+      top:auto !important; width:auto; min-width:0; border-radius:18px; padding:12px;
+    }
+    .color-menu button{padding:12px 14px; font-size:14px}
+  }
+</style>
+</head>
+<body>
+<canvas id="fxCanvas"></canvas>
+<div class="blast-flash" id="blastFlash"></div>
+<div class="menu-backdrop" id="menuBackdrop"></div>
+
+<!-- Right-click / Long-press floating color annotation menu -->
+<div class="color-menu" id="colorMenu" role="menu" aria-label="标注格子颜色">
+  <div class="cm-title"><span id="cmTitle">标注颜色</span><span>仅按范围推理</span></div>
+  <div class="cm-grid">
+    <button type="button" data-col="g"><span class="dot g"></span>标注为 绿色<span class="cm-range">0 雷 · +1</span></button>
+    <button type="button" data-col="b"><span class="dot b"></span>标注为 蓝色<span class="cm-range">1–2 雷 · +5</span></button>
+    <button type="button" data-col="r"><span class="dot r"></span>标注为 红色<span class="cm-range">3–4 雷 · +20</span></button>
+    <button type="button" data-col="clear"><span class="dot c"></span>清除该格标注<span class="cm-range">未知</span></button>
+  </div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="titlegroup">
+      <h1>扫雷 4×5 · <b>纯色推理器 &amp; 高分挑战</b></h1>
+      <span class="sub">手机点按/长按 · 电脑右键标注颜色（仅知范围 0 / 1–2 / 3–4）</span>
+    </div>
+    <div class="modeswitch" role="tablist">
+      <button type="button" class="modebtn active" id="modeSolverBtn">标注颜色推荐模式</button>
+      <button type="button" class="modebtn" id="modePlayBtn">随机实战游玩模式</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div>
+      <div class="panel scorebox" id="scoreBox">
+        <div class="scoreline">
+          <div class="scorewrap">
+            <div class="score" id="score">0</div>
+            <span class="badge" id="passBadge">目标 &gt; 30 分</span>
+          </div>
+          <div class="target">阶段线 <b>30 分</b> · 终极目标 <b>全开 16 格</b><br><span id="highScoreTxt">历史最高：0 分</span></div>
+        </div>
+        <div class="bar"><div class="fill" id="fill"></div><div class="mark" title="30 分达标线"></div></div>
+        <div class="meta"><span id="progressTxt">还差 31 分达成及格线</span><span id="stateTxt">等待标注</span></div>
+      </div>
+
+      <!-- Real-time AI Recommendation Banner -->
+      <div class="recbanner" id="recBanner">
+        <div>
+          <div class="rec-main">
+            <span class="rec-tag" id="recBadge">AI 推荐</span>
+            <span id="recTitle">建议先点四角（如第 1 行第 1 列）</span>
+          </div>
+          <div class="rec-sub" id="recDetail">四角有 49.1% 概率开出绿色（0 雷），一旦开绿可直接导出周围 3 格 100% 安全。手机可直接在下方选色点格子或长按格子，电脑可直接右键标注。</div>
+        </div>
+      </div>
+
+      <!-- Mobile & PC Quick Color Brush Bar right above the board -->
+      <div class="colordock" id="solverTools">
+        <div class="dock-label">
+          <span>点格子动作：</span>
+          <span class="hint-touch">手机长按 / 电脑右键 亦可弹窗</span>
+        </div>
+        <div class="brushbar" id="brushBar">
+          <button type="button" class="brushbtn active" data-brush="g"><span class="sw g"></span>标绿</button>
+          <button type="button" class="brushbtn" data-brush="b"><span class="sw b"></span>标蓝</button>
+          <button type="button" class="brushbtn" data-brush="r"><span class="sw r"></span>标红</button>
+          <button type="button" class="brushbtn" data-brush="popup">弹窗选</button>
+          <button type="button" class="brushbtn" data-brush="clear">清除</button>
+        </div>
+      </div>
+
+      <div class="panel boardwrap"><div id="board"></div></div>
+
+      <details class="rules">
+        <summary>手机触控 &amp; 电脑右键标注说明 / 纯色范围推理策略</summary>
+        <div class="body">
+          <b>1. 手机与电脑怎么标注颜色</b>：<br>
+          · <b>手机触控</b>：① 在棋盘上方快捷栏选中「标绿 / 标蓝 / 标红 / 弹窗选」，直接<b>轻点格子</b>即可上色；② 也可在任意格子上<b>长按 0.35 秒</b>呼出底部颜色选择面板。<br>
+          · <b>电脑鼠标</b>：在任意格子上<b>点击鼠标右键</b>弹出选色菜单（或在操作区切换为“右键直接循环绿→蓝→红→清除”）。<br>
+          <b>2. 严格只知道范围、不知道具体雷数</b>：推理引擎对每个已标注格子<b>只知道颜色对应的雷数区间</b>——<b>绿色 = 0 雷</b>、<b>蓝色 ∈ {1, 2} 雷</b>、<b>红色 ∈ {3, 4} 雷</b>。<br>
+          <b>3. 一步前瞻实时推荐</b>：每次标注颜色后，引擎从全部 <b>4845 种</b> 4 雷布局中筛出合法布局，优先推荐 `0%` 必安全格；当必须破局时，自动运行<b>一步前瞻</b>挑选最能打开安全突破口、预计解锁最多必安全格的位置（金色边框 +「推荐」角标）。
+        </div>
+      </details>
+    </div>
+
+    <div class="side">
+      <div class="panel card">
+        <h3 id="ctrlTitle">标注 &amp; 棋盘操作</h3>
+        <div class="btns">
+          <button class="btn wide" id="newBtn">清空棋盘重新标注</button>
+          <button class="btn" id="rightModeBtn">右键/长按：弹窗</button>
+          <button class="btn" id="coachBtn">显示概率：开</button>
+        </div>
+        <div class="tip" id="tip">手机点上方色块再点格子（或长按格子），电脑直接右键点击格子标注颜色。</div>
+      </div>
+
+      <div class="panel card">
+        <h3>纯色范围推理局面</h3>
+        <div class="stat"><span>当前累计总分</span><b class="gold" id="sScore">0 分</b></div>
+        <div class="stat"><span>已标注 / 安全格</span><b id="sClicks">0 / 16</b></div>
+        <div class="stat"><span>0% 必安全格数</span><b id="sZeroSafe" style="color:#7dfab0">—</b></div>
+        <div class="stat"><span>100% 必雷格数</span><b id="sSureMine" style="color:#ff8b8b">—</b></div>
+        <div class="stat"><span>符合颜色范围雷区</span><b id="sBelief">4845 种</b></div>
+        <div class="stat"><span>推荐格期望得分</span><b id="sEV">—</b></div>
+      </div>
+
+      <div class="panel card">
+        <h3>颜色范围 → 计分规则</h3>
+        <div class="legend">
+          <div><span class="sw g"></span> 绿 · 周围 0 雷 <b style="margin-left:auto;color:#7dfab0">+1 分</b></div>
+          <div><span class="sw b"></span> 蓝 · 周围 1–2 雷（仅知范围） <b style="margin-left:auto;color:#8ab6ff">+5 分</b></div>
+          <div><span class="sw r"></span> 红 · 周围 3–4 雷（仅知范围） <b style="margin-left:auto;color:#ff9a9a">+20 分</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="big" id="mIcon"></div>
+    <h2 id="mTitle">本局结束</h2>
+    <p id="mText"></p>
+    <div class="fin" id="mFin"></div>
+    <div class="btns">
+      <button class="btn" id="mClose">查看棋盘</button>
+      <button class="btn wide" id="mNew">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==== ENGINE ==== */
+/* Shared engine for the 4x5 / 4-mine color-only scoring game & assistant solver.
+ * Works in Node and in the browser (attaches to globalThis.MG). */
+(function (root) {
+  const R = 4, C = 5, N = R * C, K = 4;
+  const SCORE = [1, 5, 5, 20, 20];       // index = adjacent mine count
+  const COLOR = ['g', 'b', 'b', 'r', 'r']; // css class per adjacent mine count
+  const COLOR_SCORE = { g: 1, b: 5, r: 20 };
+
+  const NB = [];
+  for (let i = 0; i < N; i++) {
+    const r = (i / C) | 0, c = i % C;
+    const list = [];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      const rr = r + dr, cc = c + dc;
+      if (rr >= 0 && rr < R && cc >= 0 && cc < C) list.push(rr * C + cc);
+    }
+    NB.push(list);
+  }
+
+  function colorOfCount(cnt) {
+    return COLOR[cnt];
+  }
+
+  // ---- all C(20,4) mine layouts -------------------------------------------------
+  const PLACEMENTS = [];
+  (function gen(start, left, mask) {
+    if (left === 0) {
+      const cnt = new Int8Array(N);
+      let maxScore = 0;
+      for (let i = 0; i < N; i++) {
+        let s = 0;
+        for (const j of NB[i]) if (mask & (1 << j)) s++;
+        cnt[i] = s;
+        if (!(mask & (1 << i))) maxScore += SCORE[s];
+      }
+      PLACEMENTS.push({ mask, cnt, maxScore });
+      return;
+    }
+    for (let i = start; i <= N - left; i++) gen(i + 1, left - 1, mask | (1 << i));
+  })(0, K, 0);
+
+  /**
+   * Keep only layouts matching the observed COLOR of `cell`
+   * ('g' => 0 mines, 'b' => 1 or 2 mines, 'r' => 3 or 4 mines).
+   * Notice we NEVER know whether 'b' is 1 or 2, or whether 'r' is 3 or 4.
+   */
+  function filterBelief(belief, cell, obs) {
+    const col = typeof obs === 'string' ? obs : COLOR[obs];
+    const bit = 1 << cell, out = [];
+    for (let k = 0; k < belief.length; k++) {
+      const p = belief[k];
+      if (!(p.mask & bit) && COLOR[p.cnt[cell]] === col) out.push(p);
+    }
+    return out;
+  }
+
+  /**
+   * Build the exact belief set from a Map or Array/Object of cell -> color ('g'|'b'|'r'),
+   * using ONLY color range constraints (g: 0, b: 1..2, r: 3..4).
+   */
+  function beliefFromColorMarks(marks) {
+    const entries = marks instanceof Map
+      ? [...marks.entries()]
+      : Object.entries(marks).map(([k, v]) => [Number(k), v]);
+    let b = PLACEMENTS;
+    for (let idx = 0; idx < entries.length; idx++) {
+      const cell = entries[idx][0];
+      const col = entries[idx][1];
+      if (col === 'g' || col === 'b' || col === 'r') {
+        b = filterBelief(b, cell, col);
+      }
+    }
+    return b;
+  }
+
+  function beliefWithout(belief, cell) {
+    const bit = 1 << cell, out = [];
+    for (let k = 0; k < belief.length; k++) if (!(belief[k].mask & bit)) out.push(belief[k]);
+    return out;
+  }
+
+  /** Per-cell statistics for the current belief. */
+  function analyze(belief, revealedMask) {
+    const n = belief.length, out = new Array(N);
+    const hist = new Float64Array(5);
+    for (let i = 0; i < N; i++) {
+      if (revealedMask & (1 << i)) { out[i] = null; continue; }
+      let mines = 0;
+      hist.fill(0);
+      for (let k = 0; k < n; k++) {
+        const p = belief[k];
+        if (p.mask & (1 << i)) mines++;
+        else hist[p.cnt[i]]++;
+      }
+      const safe = n - mines;
+      let ev = 0;
+      if (safe) for (let c = 0; c <= 4; c++) ev += hist[c] * SCORE[c] / safe;
+      out[i] = {
+        p: n ? mines / n : 0,
+        ev,
+        safe,
+        n,
+        pGreen: safe ? hist[0] / safe : 0,
+        pBlue: safe ? (hist[1] + hist[2]) / safe : 0,
+        pRed: safe ? (hist[3] + hist[4]) / safe : 0
+      };
+    }
+    return out;
+  }
+
+  /**
+   * 1-step information & safe-cell unlocking lookahead:
+   * Simulates observing 'g', 'b', or 'r' on `cell` and computes:
+   * - expZeroSafe: expected number of 0%-risk (guaranteed safe) cells unlocked on the next board
+   * - expNextSurvive: expected survival probability on the subsequent move
+   * - infoGain: expected Shannon entropy reduction (bits) on the remaining mine layouts
+   */
+  function oneStepLookahead(belief, revealedMask, cell, cellStat) {
+    if (!belief || !belief.length || !cellStat || !cellStat.safe) {
+      return { expZeroSafe: 0, expNextSurvive: 0, infoGain: 0 };
+    }
+    const bit = 1 << cell;
+    const buckets = { g: [], b: [], r: [] };
+    for (let k = 0; k < belief.length; k++) {
+      const p = belief[k];
+      if (p.mask & bit) continue;
+      buckets[COLOR[p.cnt[cell]]].push(p);
+    }
+    const safeTotal = cellStat.safe;
+    let expZeroSafe = 0;
+    let expNextSurvive = 0;
+    let entropyAfter = 0;
+    const nextMask = revealedMask | bit;
+    const allMask = (1 << N) - 1;
+
+    for (const col of ['g', 'b', 'r']) {
+      const sub = buckets[col];
+      const m = sub.length;
+      if (!m) continue;
+      const w = m / safeTotal;
+      entropyAfter += w * Math.log2(m);
+
+      let orMask = 0;
+      for (let k = 0; k < m; k++) orMask |= sub[k].mask;
+      const zeroSafeMask = (~orMask) & (~nextMask) & allMask;
+      let zeroCnt = 0;
+      for (let i = 0; i < N; i++) if (zeroSafeMask & (1 << i)) zeroCnt++;
+      expZeroSafe += w * zeroCnt;
+
+      if (zeroCnt > 0) {
+        expNextSurvive += w * 1.0;
+      } else {
+        const mineCounts = new Int32Array(N);
+        for (let k = 0; k < m; k++) {
+          const pm = sub[k].mask;
+          for (let i = 0; i < N; i++) if (pm & (1 << i)) mineCounts[i]++;
+        }
+        let minP = 1;
+        for (let i = 0; i < N; i++) {
+          if (nextMask & (1 << i)) continue;
+          const p = mineCounts[i] / m;
+          if (p < minP) minP = p;
+        }
+        expNextSurvive += w * (1 - minP);
+      }
+    }
+
+    const infoGain = Math.log2(safeTotal) - entropyAfter;
+    return { expZeroSafe, expNextSurvive, infoGain };
+  }
+
+  /**
+   * Lookahead-enhanced recommendation policy:
+   * 1. On an empty board (revealedMask === 0), recommend a corner cell (49.1% Green rate).
+   * 2. If one or more 0% guaranteed-safe cells exist, pick one (preferring higher expected score).
+   * 3. When forced to guess among lowest-mine-probability cells, do NOT blindly greedily chase
+   *    high-degree interior cells (which have only 5% Green rate and leave the player trapped).
+   *    Instead, evaluate 1-step lookahead (expected 0%-safe cells unlocked + next-step survival +
+   *    probability of opening a Green 0-mine region + information gain).
+   */
+  function recommend(stats, revealedMask, belief) {
+    if (!revealedMask) {
+      const s0 = stats[0];
+      if (s0) return { cell: 0, ...s0, expZeroSafe: 1.47, infoGain: 1.0, reason: 'open-corner' };
+    }
+    let zeros = [], minP = 1;
+    for (let i = 0; i < N; i++) {
+      const s = stats[i];
+      if (!s || !s.n) continue;
+      if (s.p === 0) zeros.push(i);
+      if (s.p < minP - 1e-12) minP = s.p;
+    }
+
+    if (zeros.length > 0) {
+      let best = zeros[0];
+      for (let k = 1; k < zeros.length; k++) {
+        const i = zeros[k];
+        if (stats[i].ev > stats[best].ev + 1e-12) best = i;
+      }
+      const la = belief ? oneStepLookahead(belief, revealedMask, best, stats[best]) : { expZeroSafe: 0, infoGain: 0 };
+      return { cell: best, ...stats[best], ...la, reason: 'guaranteed-safe' };
+    }
+
+    // Collect all cells tied for minimum mine probability
+    let cands = [];
+    for (let i = 0; i < N; i++) {
+      const s = stats[i];
+      if (!s || !s.n) continue;
+      if (Math.abs(s.p - minP) < 1e-12) cands.push(i);
+    }
+    if (!cands.length) return null;
+
+    let bestCell = cands[0], bestVal = -1e9, bestLa = { expZeroSafe: 0, expNextSurvive: 0, infoGain: 0 };
+    for (let k = 0; k < cands.length; k++) {
+      const i = cands[k];
+      const s = stats[i];
+      const la = (belief && cands.length > 1)
+        ? oneStepLookahead(belief, revealedMask, i, s)
+        : { expZeroSafe: s.pGreen * 3, expNextSurvive: 1 - s.p, infoGain: 0 };
+      const val = la.expZeroSafe * 140 + la.expNextSurvive * 250 + s.pGreen * 100 + la.infoGain * 25 + s.ev * 0.4;
+      if (val > bestVal) {
+        bestVal = val;
+        bestCell = i;
+        bestLa = la;
+      }
+    }
+    return { cell: bestCell, ...stats[bestCell], ...bestLa, reason: 'lowest-risk-lookahead' };
+  }
+
+  root.MG = {
+    R, C, N, K, SCORE, COLOR, COLOR_SCORE, NB, PLACEMENTS,
+    colorOfCount, filterBelief, beliefFromColorMarks, beliefWithout,
+    analyze, oneStepLookahead, recommend
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* ==== /ENGINE ==== */
+
+(function () {
+  const { R, C, N, K, SCORE, COLOR, COLOR_SCORE, PLACEMENTS, filterBelief, beliefFromColorMarks, analyze, recommend } = MG;
+  const TOTAL_SAFE = N - K; // 16
+  const CYCLE_NEXT = { '': 'g', g: 'b', b: 'r', r: '' };
+
+  const $ = id => document.getElementById(id);
+  const boardEl = $('board');
+  const colorMenuEl = $('colorMenu');
+  const backdropEl = $('menuBackdrop');
+  const cells = [];
+
+  let G = null;
+  let appMode = 'solver';       // 'solver' (color annotation recommender) | 'play' (playable random game)
+  let rightClickStyle = 'menu'; // 'menu' (popup palette) | 'cycle' (g -> b -> r -> clear)
+  let leftBrush = 'g';          // active tap/click brush in solver mode ('g'|'b'|'r'|'popup'|'clear')
+  let menuTargetCell = -1;
+  let highScore = 0;
+  try { highScore = Number(localStorage.getItem('ms4x5_high') || 0) || 0; } catch (_) {}
+
+  /* ---------- Cross-platform inline SVGs ---------- */
+  const SVG_MINE_EXPLODED =
+    '<svg class="bomb-svg" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<polygon points="32,2 39,18 56,10 46,25 62,32 46,39 56,54 39,46 32,62 25,46 8,54 18,39 2,32 18,25 8,10 25,18" fill="#fbbf24" stroke="#ef4444" stroke-width="2"/>' +
+      '<polygon points="32,11 37,22 49,17 42,28 53,32 42,36 49,47 37,42 32,53 27,42 15,47 22,36 11,32 22,28 15,17 27,22" fill="#fff7ed"/>' +
+      '<circle cx="32" cy="32" r="9" fill="#dc2626"/>' +
+    '</svg>';
+
+  const SVG_MINE_REVEALED =
+    '<svg class="bomb-svg" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<g stroke="#94a3b8" stroke-width="4" stroke-linecap="round">' +
+        '<line x1="32" y1="6" x2="32" y2="58"/><line x1="6" y1="32" x2="58" y2="32"/>' +
+        '<line x1="13" y1="13" x2="51" y2="51"/><line x1="51" y1="13" x2="13" y2="51"/>' +
+      '</g>' +
+      '<circle cx="32" cy="34" r="17" fill="#1e293b" stroke="#e2e8f0" stroke-width="2.5"/>' +
+      '<circle cx="26" cy="28" r="5" fill="#94a3b8" opacity=".65"/>' +
+      '<path d="M35 16 Q42 8 50 12" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>' +
+      '<circle cx="51" cy="12" r="4" fill="#ef4444"/>' +
+    '</svg>';
+
+  const SVG_MODAL_BOOM =
+    '<svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<polygon points="32,2 39,18 56,10 46,25 62,32 46,39 56,54 39,46 32,62 25,46 8,54 18,39 2,32 18,25 8,10 25,18" fill="#fbbf24" stroke="#ef4444" stroke-width="2.5"/>' +
+      '<circle cx="32" cy="32" r="11" fill="#dc2626"/>' +
+    '</svg>';
+
+  const SVG_MODAL_TROPHY =
+    '<svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<path d="M18 10 H46 V26 C46 36 39 42 32 42 C25 42 18 36 18 26 Z" fill="#fbbf24" stroke="#fef08a" stroke-width="2.5"/>' +
+      '<path d="M18 14 H10 V22 C10 29 14 33 19 33" fill="none" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>' +
+      '<path d="M46 14 H54 V22 C54 29 50 33 45 33" fill="none" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>' +
+      '<rect x="28" y="42" width="8" height="10" fill="#f59e0b"/>' +
+      '<rect x="20" y="52" width="24" height="6" rx="3" fill="#fbbf24"/>' +
+    '</svg>';
+
+  /* ---------- Explosion Canvas Particle System ---------- */
+  const fxCanvas = $('fxCanvas');
+  const fxCtx = fxCanvas && fxCanvas.getContext ? fxCanvas.getContext('2d') : null;
+  let particles = [];
+  let shockwaves = [];
+  let rafId = 0;
+  let modalTimer = 0;
+  let chainTimers = [];
+
+  function clearExplosionTimers() {
+    if (modalTimer) { clearTimeout(modalTimer); modalTimer = 0; }
+    while (chainTimers.length) clearTimeout(chainTimers.pop());
+    particles = [];
+    shockwaves = [];
+    if (fxCtx && fxCanvas) fxCtx.clearRect(0, 0, fxCanvas.width || 0, fxCanvas.height || 0);
+    if (document.body && document.body.classList) document.body.classList.remove('screen-shake');
+  }
+
+  function resizeCanvas() {
+    if (!fxCanvas || typeof window === 'undefined') return;
+    fxCanvas.width = window.innerWidth || 1024;
+    fxCanvas.height = window.innerHeight || 768;
+  }
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+  }
+
+  function cellCenter(i) {
+    const el = cells[i];
+    if (el && typeof el.getBoundingClientRect === 'function') {
+      const rect = el.getBoundingClientRect();
+      if (rect && rect.width) {
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+    }
+    const r = (i / C) | 0, c = i % C;
+    return { x: 260 + c * 90, y: 260 + r * 90 };
+  }
+
+  function spawnExplosionAt(x, y, scale) {
+    if (!fxCtx) return;
+    resizeCanvas();
+    const s = scale || 1;
+    shockwaves.push({ x, y, r: 6 * s, maxR: 165 * s, alpha: 1, color: '#fbbf24', lw: 6 * s });
+    shockwaves.push({ x, y, r: 2 * s, maxR: 115 * s, alpha: 0.9, color: '#ef4444', lw: 4 * s });
+
+    const fireColors = ['#fff7ed', '#fde047', '#fbbf24', '#fb923c', '#ef4444', '#dc2626'];
+    const count = Math.round(52 * s);
+    for (let k = 0; k < count; k++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = (2.2 + Math.random() * 10.5) * s;
+      particles.push({
+        kind: 'spark', x, y,
+        vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1.4 * s,
+        g: 0.24, drag: 0.96, size: (2.5 + Math.random() * 5.5) * s,
+        alpha: 1, decay: 0.016 + Math.random() * 0.018,
+        color: fireColors[(Math.random() * fireColors.length) | 0]
+      });
+    }
+    const debrisCount = Math.round(18 * s);
+    for (let k = 0; k < debrisCount; k++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = (3 + Math.random() * 9) * s;
+      particles.push({
+        kind: 'debris', x, y,
+        vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 2.5 * s,
+        g: 0.36, drag: 0.97, size: (4 + Math.random() * 5) * s,
+        rot: Math.random() * 6.28, vrot: (Math.random() - 0.5) * 0.35,
+        alpha: 1, decay: 0.014 + Math.random() * 0.015,
+        color: k % 2 ? '#1e293b' : '#b91c1c'
+      });
+    }
+    const smokeCount = Math.round(16 * s);
+    for (let k = 0; k < smokeCount; k++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = (0.8 + Math.random() * 3.2) * s;
+      particles.push({
+        kind: 'smoke',
+        x: x + (Math.random() - 0.5) * 18, y: y + (Math.random() - 0.5) * 18,
+        vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1.2 * s,
+        g: -0.04, drag: 0.95, size: (12 + Math.random() * 18) * s,
+        alpha: 0.65, decay: 0.011 + Math.random() * 0.01,
+        color: 'rgba(30,41,59,0.75)'
+      });
+    }
+    if (!rafId && typeof requestAnimationFrame === 'function') {
+      rafId = requestAnimationFrame(stepParticles);
+    }
+  }
+
+  function stepParticles() {
+    rafId = 0;
+    if (!fxCtx || !fxCanvas) return;
+    fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+      const w = shockwaves[i];
+      w.r += (w.maxR - w.r) * 0.16 + 1.5;
+      w.alpha *= 0.88;
+      if (w.alpha < 0.03 || w.r >= w.maxR) { shockwaves.splice(i, 1); continue; }
+      fxCtx.save();
+      fxCtx.beginPath();
+      fxCtx.arc(w.x, w.y, w.r, 0, Math.PI * 2);
+      fxCtx.strokeStyle = w.color;
+      fxCtx.globalAlpha = w.alpha;
+      fxCtx.lineWidth = w.lw;
+      fxCtx.stroke();
+      fxCtx.restore();
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.vx *= p.drag;
+      p.vy = p.vy * p.drag + p.g;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= p.decay;
+      if (p.alpha <= 0.02) { particles.splice(i, 1); continue; }
+
+      fxCtx.save();
+      fxCtx.globalAlpha = Math.max(0, p.alpha);
+      if (p.kind === 'debris') {
+        p.rot += p.vrot;
+        fxCtx.translate(p.x, p.y);
+        fxCtx.rotate(p.rot);
+        fxCtx.fillStyle = p.color;
+        fxCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.7);
+      } else if (p.kind === 'smoke') {
+        p.size += 0.35;
+        fxCtx.fillStyle = p.color;
+        fxCtx.beginPath();
+        fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        fxCtx.fill();
+      } else {
+        fxCtx.fillStyle = p.color;
+        fxCtx.beginPath();
+        fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        fxCtx.fill();
+      }
+      fxCtx.restore();
+    }
+
+    if ((particles.length || shockwaves.length) && typeof requestAnimationFrame === 'function') {
+      rafId = requestAnimationFrame(stepParticles);
+    }
+  }
+
+  function vibrate(ms) {
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(ms);
+      }
+    } catch (_) {}
+  }
+
+  function playExplosionEffect(hitCell) {
+    vibrate([60, 40, 120]);
+    const pt = cellCenter(hitCell);
+    const flash = $('blastFlash');
+    if (flash && flash.style && flash.classList) {
+      if (typeof window !== 'undefined' && window.innerWidth) {
+        flash.style.setProperty('--bx', ((pt.x / window.innerWidth) * 100).toFixed(1) + '%');
+        flash.style.setProperty('--by', ((pt.y / window.innerHeight) * 100).toFixed(1) + '%');
+      }
+      flash.classList.remove('fire');
+      void flash.offsetWidth;
+      flash.classList.add('fire');
+    }
+    if (document.body && document.body.classList) {
+      document.body.classList.remove('screen-shake');
+      void document.body.offsetWidth;
+      document.body.classList.add('screen-shake');
+    }
+    spawnExplosionAt(pt.x, pt.y, 1.15);
+
+    if (G && G.layout) {
+      let delay = 110;
+      for (let k = 0; k < N; k++) {
+        if (k !== hitCell && (G.layout.mask & (1 << k))) {
+          const t = setTimeout(() => {
+            const p2 = cellCenter(k);
+            spawnExplosionAt(p2.x, p2.y, 0.55);
+          }, delay);
+          chainTimers.push(t);
+          delay += 95;
+        }
+      }
+    }
+  }
+
+  /* ---------- Right-click / Long-press Color Annotation & Recommender ---------- */
+  function hideColorMenu() {
+    if (colorMenuEl && colorMenuEl.classList) colorMenuEl.classList.remove('show');
+    if (backdropEl && backdropEl.classList) backdropEl.classList.remove('show');
+    menuTargetCell = -1;
+  }
+
+  function openColorMenu(i, clientX, clientY) {
+    menuTargetCell = i;
+    vibrate(18);
+    const r = (i / C | 0) + 1, c = (i % C) + 1;
+    $('cmTitle').textContent = `第 ${r} 行第 ${c} 列 · 选择颜色`;
+    const vw = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1024;
+    const vh = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 768;
+    if (colorMenuEl && colorMenuEl.style) {
+      const pt = (clientX || clientY) ? { x: clientX, y: clientY } : cellCenter(i);
+      const x = Math.min(Math.max(12, pt.x), vw - 230);
+      const y = Math.min(Math.max(12, pt.y), vh - 230);
+      colorMenuEl.style.left = x + 'px';
+      colorMenuEl.style.top = y + 'px';
+    }
+    if (vw <= 560 && backdropEl && backdropEl.classList) {
+      backdropEl.classList.add('show');
+    }
+    colorMenuEl.classList.add('show');
+  }
+
+  /**
+   * Annotate cell `i` with a color ('g' | 'b' | 'r' | 'clear' | '')
+   * and recompute the exact belief & best recommendation using ONLY color ranges.
+   */
+  function markCellColor(i, col) {
+    if (!G || i < 0 || i >= N) return;
+    hideColorMenu();
+    vibrate(10);
+
+    if (col === 'clear' || !col) {
+      G.colorMarks.delete(i);
+      if (appMode === 'solver') G.revealed.delete(i);
+    } else if (col === 'g' || col === 'b' || col === 'r') {
+      G.colorMarks.set(i, col);
+      if (appMode === 'solver') G.revealed.set(i, col);
+    }
+
+    if (appMode === 'solver') {
+      let sc = 0;
+      for (const c of G.colorMarks.values()) sc += COLOR_SCORE[c] || 0;
+      G.score = sc;
+      G.clicks = G.colorMarks.size;
+      G.started = G.colorMarks.size > 0;
+      updateHighScore(G.score);
+    }
+
+    recalcFromColorMarks();
+
+    const el = cells[i];
+    if (el) {
+      el.classList.add('pop');
+      setTimeout(() => el.classList.remove('pop'), 360);
+    }
+    render();
+  }
+
+  function recalcFromColorMarks() {
+    // Strictly filter all 4845 layouts by the color ranges ('g'=>0, 'b'=>1..2, 'r'=>3..4)
+    const activeMarks = appMode === 'solver' ? G.colorMarks : G.playColorObs;
+    G.belief = beliefFromColorMarks(activeMarks);
+    const mask = [...activeMarks.keys()].reduce((m, idx) => m | (1 << idx), 0);
+    G.stats = analyze(G.belief, mask);
+    G.rec = recommend(G.stats, mask, G.belief);
+  }
+
+  /* ---------- Game lifecycle ---------- */
+  function newGame() {
+    clearExplosionTimers();
+    hideColorMenu();
+    G = {
+      layout: null,
+      belief: PLACEMENTS.slice(),
+      revealed: new Map(),
+      playColorObs: new Map(),
+      colorMarks: new Map(),
+      score: 0,
+      over: false,
+      started: false,
+      coach: true,
+      clicks: 0,
+      rec: null,
+      stats: null,
+      bustCell: -1,
+      passed30: false
+    };
+    $('overlay').classList.remove('show');
+    buildBoard();
+    recalcFromColorMarks();
+    render();
+    if (appMode === 'solver') {
+      setTip('手机点上方画笔再点格子（或长按格子 0.35 秒），电脑直接右键点击格子标注颜色，系统立即推荐最佳落点。');
+    } else {
+      setTip('点开任意一格开局（首点必安全），仅显示颜色，超过 30 分后继续冲高分！');
+    }
+  }
+
+  function buildBoard() {
+    boardEl.innerHTML = '';
+    cells.length = 0;
+    for (let i = 0; i < N; i++) {
+      const b = document.createElement('button');
+      b.className = 'cell';
+      b.dataset.i = i;
+      const r = (i / C | 0) + 1, c = (i % C) + 1;
+      b.setAttribute('aria-label', `第 ${r} 行第 ${c} 列`);
+      b.innerHTML = '<span class="num"></span>';
+
+      // Long-press touch support for mobile devices
+      let lpTimer = 0;
+      let lpFired = false;
+      let startX = 0, startY = 0;
+
+      b.addEventListener('touchstart', (ev) => {
+        lpFired = false;
+        const t = ev.touches && ev.touches[0];
+        startX = t ? t.clientX : 200;
+        startY = t ? t.clientY : 200;
+        if (lpTimer) clearTimeout(lpTimer);
+        lpTimer = setTimeout(() => {
+          lpTimer = 0;
+          lpFired = true;
+          onSecondaryAction(i, { clientX: startX, clientY: startY });
+        }, 360);
+      });
+      b.addEventListener('touchmove', (ev) => {
+        if (!lpTimer) return;
+        const t = ev.touches && ev.touches[0];
+        if (t && (Math.abs(t.clientX - startX) > 14 || Math.abs(t.clientY - startY) > 14)) {
+          clearTimeout(lpTimer);
+          lpTimer = 0;
+        }
+      });
+      b.addEventListener('touchend', (ev) => {
+        if (lpTimer) { clearTimeout(lpTimer); lpTimer = 0; }
+        if (lpFired && ev && typeof ev.preventDefault === 'function') {
+          ev.preventDefault();
+        }
+      });
+      b.addEventListener('touchcancel', () => {
+        if (lpTimer) { clearTimeout(lpTimer); lpTimer = 0; }
+      });
+
+      b.addEventListener('click', (ev) => {
+        if (lpFired) { lpFired = false; return; }
+        onLeftClick(i, ev);
+      });
+      b.addEventListener('contextmenu', (ev) => onRightClick(i, ev));
+      boardEl.appendChild(b);
+      cells.push(b);
+    }
+  }
+
+  function onSecondaryAction(i, coords) {
+    if (!G || (appMode === 'play' && G.over)) return;
+    if (rightClickStyle === 'cycle') {
+      const cur = G.colorMarks.get(i) || '';
+      const next = CYCLE_NEXT[cur];
+      markCellColor(i, next || 'clear');
+    } else {
+      const cx = coords && coords.clientX ? coords.clientX : 0;
+      const cy = coords && coords.clientY ? coords.clientY : 0;
+      openColorMenu(i, cx, cy);
+    }
+  }
+
+  function onRightClick(i, ev) {
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    onSecondaryAction(i, ev);
+  }
+
+  function onLeftClick(i, ev) {
+    hideColorMenu();
+    if (!G) return;
+    if (appMode === 'solver') {
+      if (leftBrush === 'popup') {
+        const cx = ev && ev.clientX ? ev.clientX : 0;
+        const cy = ev && ev.clientY ? ev.clientY : 0;
+        openColorMenu(i, cx, cy);
+        return;
+      }
+      const cur = G.colorMarks.get(i) || '';
+      if (leftBrush === 'clear' || cur === leftBrush) {
+        markCellColor(i, 'clear');
+      } else {
+        markCellColor(i, leftBrush);
+      }
+      return;
+    }
+
+    // Play mode left click
+    if (G.over) return;
+    if (G.revealed.has(i)) return;
+
+    if (!G.started) {
+      const pool = PLACEMENTS.filter(p => !(p.mask & (1 << i)));
+      G.layout = pool[Math.floor(Math.random() * pool.length)];
+      G.started = true;
+    }
+
+    if (G.layout.mask & (1 << i)) { bust(i); return; }
+
+    vibrate(10);
+    const c = G.layout.cnt[i];
+    const col = COLOR[c];
+    const prevScore = G.score;
+    G.revealed.set(i, c);
+    G.playColorObs.set(i, col);
+    G.colorMarks.set(i, col);
+    G.score += SCORE[c];
+    G.clicks++;
+    updateHighScore(G.score);
+
+    recalcFromColorMarks();
+
+    const el = cells[i];
+    el.classList.add('pop');
+    setTimeout(() => el.classList.remove('pop'), 360);
+
+    if (prevScore <= 30 && G.score > 30) {
+      G.passed30 = true;
+      setTip(`已突破 30 分达标线（当前 ${G.score} 分）！游戏继续，点开剩余安全格冲击最高总分！`);
+    }
+
+    if (G.revealed.size >= TOTAL_SAFE) {
+      fullClearWin();
+      render();
+      return;
+    }
+    render();
+  }
+
+  function updateHighScore(sc) {
+    if (sc > highScore) {
+      highScore = sc;
+      try { localStorage.setItem('ms4x5_high', String(highScore)); } catch (_) {}
+    }
+  }
+
+  function bust(i) {
+    G.over = true;
+    G.bustCell = i;
+    updateHighScore(G.score);
+    render();
+    cells[i].classList.add('shake');
+    playExplosionEffect(i);
+
+    const passed = G.score > 30;
+    const title = passed ? '轰！踩雷结束（已达标）' : '轰！踩到炸弹了';
+    const desc = passed
+      ? `你在第 ${G.clicks + 1} 次点击触发了炸弹！不过本局已突破 30 分及格线，最终成绩定格在 ${G.score} 分。`
+      : `你在第 ${G.clicks + 1} 次点击触发了炸弹（距离 30 分达标线还差 ${31 - G.score} 分）。`;
+    const fin =
+      `本局最终总分 <b>${G.score}</b> 分` +
+      `<span class="subfin">已点开 ${G.clicks} / ${TOTAL_SAFE} 个安全格 · ${passed ? '已达成 >30 分获胜线' : '未满 31 分'} · 历史最高 ${highScore} 分</span>`;
+    showModal(SVG_MODAL_BOOM, title, desc, fin, 780);
+  }
+
+  function fullClearWin() {
+    G.over = true;
+    updateHighScore(G.score);
+    const fin =
+      `本局最终总分 <b>${G.score}</b> 分` +
+      `<span class="subfin">16 / 16 安全格全部点开 · 完美清盘 · 历史最高 ${highScore} 分</span>`;
+    showModal(
+      SVG_MODAL_TROPHY,
+      '完美清盘 · 全部安全格已点开！',
+      `太强了！你在不显示具体雷数的纯色模式下避开全部 4 颗炸弹，点开了所有 ${TOTAL_SAFE} 个安全格！`,
+      fin,
+      360
+    );
+  }
+
+  function showModal(svgHtml, title, text, fin, delayMs) {
+    $('mIcon').innerHTML = svgHtml;
+    $('mTitle').textContent = title;
+    $('mText').textContent = text;
+    $('mFin').innerHTML = fin;
+    if (modalTimer) clearTimeout(modalTimer);
+    modalTimer = setTimeout(() => $('overlay').classList.add('show'), delayMs || 480);
+  }
+
+  function setTip(t) { $('tip').textContent = t; }
+
+  function renderRecommendationBanner(zeroSafeCount, sureMineCount) {
+    const banner = $('recBanner');
+    const titleEl = $('recTitle');
+    const detailEl = $('recDetail');
+    const badgeEl = $('recBadge');
+    banner.classList.remove('conflict');
+
+    if (!G) return;
+    const beliefCount = G.belief ? G.belief.length : 0;
+
+    if (beliefCount === 0) {
+      banner.classList.add('conflict');
+      badgeEl.textContent = '颜色矛盾';
+      titleEl.textContent = '当前标注的颜色组合不存在合法的 4 雷布局（0 种可能）';
+      detailEl.textContent = '请检查是否有某个格子的颜色标错了，点选「清除」或长按/右键该格即可修改。';
+      return;
+    }
+
+    const activeCount = appMode === 'solver' ? G.colorMarks.size : G.playColorObs.size;
+    if (activeCount >= TOTAL_SAFE) {
+      badgeEl.textContent = '全部找齐';
+      titleEl.textContent = `全部 16 个安全格均已标注完毕！总分 ${G.score} 分`;
+      detailEl.textContent = `剩余 4 个未标注格 100% 是炸弹（共 ${beliefCount} 种等价雷区分布）。`;
+      return;
+    }
+
+    if (!G.rec) {
+      badgeEl.textContent = '等待标注';
+      titleEl.textContent = '请标注任意格子的颜色';
+      detailEl.textContent = '系统将仅根据颜色代表的雷数范围为你推荐最佳落点。';
+      return;
+    }
+
+    const s = G.rec;
+    const r = (s.cell / C | 0) + 1, c = (s.cell % C) + 1;
+    const pPct = s.p === 0 ? '0%（必安全）' : (s.p * 100).toFixed(1) + '%';
+    const colDist = `出现绿 ${(s.pGreen * 100).toFixed(0)}% / 蓝 ${(s.pBlue * 100).toFixed(0)}% / 红 ${(s.pRed * 100).toFixed(0)}%`;
+
+    if (activeCount === 0) {
+      badgeEl.textContent = '开局推荐';
+      titleEl.textContent = `建议先点 第 ${r} 行第 ${c} 列（四角格）`;
+      detailEl.textContent = `四角格有 49.1% 概率开出绿色（0 雷），一旦开绿可直接锁定周围 3 格 100% 安全。点开后请标注该格颜色！`;
+    } else if (s.p === 0) {
+      badgeEl.textContent = '100% 必安全';
+      titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 含雷率 0% · 期望 +${s.ev.toFixed(1)} 分`;
+      detailEl.textContent = `基于当前已标注颜色的范围约束（剩余 ${beliefCount} 种可能雷区），场上共有 ${zeroSafeCount} 个必安全格、${sureMineCount} 个必雷格。该格 ${colDist}。`;
+    } else {
+      badgeEl.textContent = '最优破局点';
+      const expUnlock = typeof s.expZeroSafe === 'number' ? s.expZeroSafe.toFixed(1) : '0.0';
+      titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 含雷率 ${pPct} · 预计解锁 ${expUnlock} 个必安全格`;
+      detailEl.textContent = `当前无 0% 必安全格（剩余 ${beliefCount} 种可能雷区，已锁定 ${sureMineCount} 个必雷格）。一步前瞻显示该格最易打开安全突破口（期望 +${s.ev.toFixed(1)} 分，若安全则 ${colDist}）。`;
+    }
+  }
+
+  function render() {
+    const showCoach = G && G.coach && !G.over;
+    let zeroSafeCount = 0;
+    let sureMineCount = 0;
+
+    for (let i = 0; i < N; i++) {
+      const el = cells[i];
+      el.classList.remove('g', 'b', 'r', 'open', 'rec', 'mine', 'exploded', 'sure-safe', 'sure-mine');
+      el.innerHTML = '<span class="num"></span>';
+
+      const r = (i / C | 0) + 1, c = (i % C) + 1;
+      const coord = document.createElement('span');
+      coord.className = 'coord';
+      coord.textContent = `${r},${c}`;
+      el.appendChild(coord);
+
+      const isOpenedPlay = appMode === 'play' && G.revealed.has(i);
+      const markedCol = G.colorMarks.get(i);
+
+      if (isOpenedPlay) {
+        const cnt = G.revealed.get(i);
+        const col = COLOR[cnt];
+        el.classList.add('open', col);
+        const orb = document.createElement('span');
+        orb.className = 'orb';
+        el.appendChild(orb);
+        const pts = document.createElement('span');
+        pts.className = 'pts';
+        pts.textContent = '+' + SCORE[cnt];
+        el.appendChild(pts);
+      } else if (appMode === 'solver' && markedCol) {
+        el.classList.add('open', markedCol);
+        const orb = document.createElement('span');
+        orb.className = 'orb';
+        el.appendChild(orb);
+        const tag = document.createElement('span');
+        tag.className = 'marktag';
+        tag.textContent = markedCol === 'g' ? '0雷' : (markedCol === 'b' ? '1-2雷' : '3-4雷');
+        el.appendChild(tag);
+        const pts = document.createElement('span');
+        pts.className = 'pts';
+        pts.textContent = '+' + COLOR_SCORE[markedCol];
+        el.appendChild(pts);
+      } else if (appMode === 'play' && G.over && G.layout && (G.layout.mask & (1 << i))) {
+        el.classList.add('mine');
+        if (G.bustCell === i) {
+          el.classList.add('exploded');
+          el.innerHTML = '<span class="num"></span><span class="crater-ring"></span>' + SVG_MINE_EXPLODED;
+        } else {
+          el.innerHTML = '<span class="num"></span>' + SVG_MINE_REVEALED;
+        }
+      } else if (showCoach && G.stats && G.stats[i] && G.belief && G.belief.length > 0) {
+        const s = G.stats[i];
+        const pct = s.p * 100;
+        if (s.p === 0) {
+          zeroSafeCount++;
+          el.classList.add('sure-safe');
+        } else if (s.p >= 1 - 1e-12) {
+          sureMineCount++;
+          el.classList.add('sure-mine');
+        }
+        const tag = document.createElement('span');
+        if (s.p >= 1 - 1e-12) {
+          tag.className = 'prob certain-mine';
+          tag.textContent = '必雷';
+        } else {
+          tag.className = 'prob ' + (pct === 0 ? 'safe' : pct < 15 ? 'warn' : 'bad');
+          tag.textContent = pct === 0 ? '0%安全' : (pct < 1 ? '<1%' : Math.round(pct) + '%');
+          const evEl = document.createElement('span');
+          evEl.className = 'evtag';
+          evEl.textContent = 'E+' + s.ev.toFixed(1);
+          el.appendChild(evEl);
+        }
+        el.appendChild(tag);
+        if (G.rec && G.rec.cell === i) el.classList.add('rec');
+      }
+    }
+
+    renderRecommendationBanner(zeroSafeCount, sureMineCount);
+
+    const scVal = G ? G.score : 0;
+    const passed = scVal > 30;
+    $('score').textContent = scVal;
+    $('sScore').textContent = scVal + ' 分';
+    $('scoreBox').classList.toggle('qualified', passed);
+
+    const badge = $('passBadge');
+    badge.classList.remove('pass', 'warn');
+    if (G && G.belief && G.belief.length === 0) {
+      badge.classList.add('warn');
+      badge.textContent = '颜色标注冲突';
+    } else if (passed) {
+      badge.classList.add('pass');
+      badge.textContent = '已达标 (>30) · 冲刺最高分';
+    } else {
+      badge.textContent = '目标 > 30 分';
+    }
+
+    $('highScoreTxt').textContent = `历史最高：${highScore} 分`;
+
+    const fill = Math.min(scVal, 100);
+    $('fill').style.width = fill + '%';
+
+    const openedCount = appMode === 'solver' ? (G ? G.colorMarks.size : 0) : (G ? G.revealed.size : 0);
+    const remSafe = Math.max(0, TOTAL_SAFE - openedCount);
+
+    if (appMode === 'solver') {
+      $('progressTxt').textContent = passed
+        ? `已达标 (>30)！当前已标注 ${openedCount}/${TOTAL_SAFE} 个安全格`
+        : `距 30 分达标线还差 ${31 - scVal} 分 · 已标注 ${openedCount}/${TOTAL_SAFE} 个安全格`;
+      $('stateTxt').textContent = G && G.belief && G.belief.length === 0
+        ? '标注冲突'
+        : (openedCount === 0 ? '等待标注' : '实时推理中');
+    } else {
+      if (!G || !G.started) {
+        $('progressTxt').textContent = '还差 31 分达成及格线 · 共 16 个安全格';
+      } else if (G.over) {
+        $('progressTxt').textContent = `本局定格：总分 ${scVal} 分（点开 ${openedCount}/${TOTAL_SAFE} 安全格）`;
+      } else if (!passed) {
+        $('progressTxt').textContent = `距 30 分达标线还差 ${31 - scVal} 分 · 剩余 ${remSafe} 个安全格`;
+      } else {
+        $('progressTxt').textContent = `已超 30 分线！还剩 ${remSafe} 个安全格可继续刷分`;
+      }
+      $('stateTxt').textContent = !G || !G.started ? '等待开局' : (G.over ? '本局结束' : (passed ? '冲分阶段' : '进行中'));
+    }
+
+    $('sClicks').textContent = `${openedCount} / ${TOTAL_SAFE}`;
+    $('sZeroSafe').textContent = G && G.belief && G.belief.length ? zeroSafeCount + ' 格' : '0 格';
+    $('sSureMine').textContent = G && G.belief && G.belief.length ? sureMineCount + ' 格' : '0 格';
+    $('sBelief').textContent = G && G.belief ? G.belief.length + ' 种' : '—';
+    const ev = G && G.rec && !G.over && G.belief && G.belief.length ? G.rec.ev.toFixed(1) : '—';
+    $('sEV').textContent = ev + (ev !== '—' ? ' 分/格' : '');
+
+    $('coachBtn').classList.toggle('on', !!(G && G.coach));
+    $('coachBtn').textContent = G && G.coach ? '显示概率：开' : '显示概率：关';
+    $('rightModeBtn').textContent = rightClickStyle === 'menu' ? '右键/长按：弹窗' : '右键/长按：循环';
+    $('newBtn').textContent = appMode === 'solver' ? '清空棋盘重新标注' : '新开一局';
+    $('solverTools').style.display = appMode === 'solver' ? 'flex' : 'none';
+    $('modeSolverBtn').classList.toggle('active', appMode === 'solver');
+    $('modePlayBtn').classList.toggle('active', appMode === 'play');
+
+    const sc = $('score');
+    sc.classList.add('pop');
+    setTimeout(() => sc.classList.remove('pop'), 160);
+  }
+
+  /* ---------- Mode & UI Controls ---------- */
+  function setAppMode(m) {
+    if (appMode === m) return;
+    appMode = m;
+    newGame();
+  }
+
+  $('modeSolverBtn').onclick = () => setAppMode('solver');
+  $('modePlayBtn').onclick = () => setAppMode('play');
+  $('newBtn').onclick = newGame;
+  $('mNew').onclick = newGame;
+  $('mClose').onclick = () => $('overlay').classList.remove('show');
+  if (backdropEl) backdropEl.onclick = hideColorMenu;
+
+  $('rightModeBtn').onclick = () => {
+    rightClickStyle = rightClickStyle === 'menu' ? 'cycle' : 'menu';
+    hideColorMenu();
+    setTip(rightClickStyle === 'menu'
+      ? '已切换为「右键/长按弹窗选色」：在格子上点右键或手机长按选择绿/蓝/红/清除。'
+      : '已切换为「右键/长按循环切换」：在格子上点右键或长按依次按 绿 → 蓝 → 红 → 清除 循环。');
+    render();
+  };
+
+  $('coachBtn').onclick = () => {
+    if (!G) return;
+    G.coach = !G.coach;
+    render();
+  };
+
+  // Color menu buttons
+  if (colorMenuEl && colorMenuEl.querySelectorAll) {
+    const btns = colorMenuEl.querySelectorAll('button[data-col]');
+    for (let k = 0; k < btns.length; k++) {
+      const btn = btns[k];
+      btn.addEventListener('click', (ev) => {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        const col = btn.getAttribute('data-col') || btn.dataset.col;
+        if (menuTargetCell >= 0) markCellColor(menuTargetCell, col);
+      });
+    }
+  }
+
+  // Quick brush buttons in solver mode
+  const brushBar = $('brushBar');
+  if (brushBar && brushBar.querySelectorAll) {
+    const bbtns = brushBar.querySelectorAll('button[data-brush]');
+    for (let k = 0; k < bbtns.length; k++) {
+      const bbtn = bbtns[k];
+      bbtn.addEventListener('click', () => {
+        leftBrush = bbtn.getAttribute('data-brush') || bbtn.dataset.brush;
+        for (let j = 0; j < bbtns.length; j++) {
+          bbtns[j].classList.toggle('active', bbtns[j] === bbtn);
+        }
+      });
+    }
+  }
+
+  document.addEventListener('click', (ev) => {
+    if (colorMenuEl && colorMenuEl.classList.contains('show')) {
+      if (!colorMenuEl.contains || !colorMenuEl.contains(ev.target)) hideColorMenu();
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') hideColorMenu();
+    if (e.key === 'r' || e.key === 'R') newGame();
+    if (e.key === 'c' || e.key === 'C') $('coachBtn').onclick();
+  });
+
+  if (typeof globalThis !== 'undefined') {
+    globalThis.MG_APP = { markCellColor, setAppMode, newGame, getState: () => G };
+  }
+
+  newGame();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# Ignore unrelated directories and files in the shared workspace root
+.acl-recovery/
+.npm-cache/
+chat/
+dsh-image-gen/
+market-index-config/
+ziwei-doushu-main/
+kaspersky.pem
+新建文本文档.txt
+
+# OS / Editor / Temp files
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
+__pycache__/
+*.pyc

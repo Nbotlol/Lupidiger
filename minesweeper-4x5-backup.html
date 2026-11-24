@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>扫雷 4×5 · 纯色高分挑战</title>
+<style>
+  :root{
+    --bg:#080c17; --bg2:#0e1526; --panel:#111a2e; --line:#22304d;
+    --txt:#e8eefc; --dim:#8ea0c2;
+    --green:#22c55e; --blue:#3b82f6; --red:#ef4444; --gold:#fbbf24;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","WenQuanYi Micro Hei","Source Han Sans SC",system-ui,-apple-system,sans-serif;
+    color:var(--txt); background:
+      radial-gradient(900px 600px at 15% -10%, #16233f 0%, transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, #1b1630 0%, transparent 55%),
+      var(--bg);
+    display:flex; align-items:center; justify-content:center; padding:26px 18px 40px;
+    overflow-x:hidden;
+  }
+  body.screen-shake{animation:screenShake .62s cubic-bezier(.36,.07,.19,.97) both}
+  @keyframes screenShake{
+    0%,100%{transform:translate3d(0,0,0)}
+    10%{transform:translate3d(-11px,-7px,0) rotate(-.8deg)}
+    20%{transform:translate3d(10px,6px,0) rotate(.8deg)}
+    30%{transform:translate3d(-9px,5px,0) rotate(-.5deg)}
+    45%{transform:translate3d(8px,-5px,0) rotate(.5deg)}
+    60%{transform:translate3d(-6px,4px,0) rotate(-.3deg)}
+    75%{transform:translate3d(4px,-3px,0)}
+    90%{transform:translate3d(-2px,2px,0)}
+  }
+
+  .app{width:min(1040px,100%); position:relative; z-index:2}
+  header{display:flex; align-items:baseline; gap:14px; margin-bottom:6px; flex-wrap:wrap}
+  h1{font-size:20px; letter-spacing:.5px; margin:0; font-weight:650}
+  h1 b{color:var(--gold)}
+  .sub{color:var(--dim); font-size:13px}
+  .sub kbd{background:#1a2540;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;font:inherit;font-size:12px}
+
+  .stage{display:grid; grid-template-columns:minmax(0,1fr) 278px; gap:22px; margin-top:16px; align-items:start}
+  @media (max-width:840px){ .stage{grid-template-columns:1fr} }
+
+  .panel{background:linear-gradient(180deg,rgba(20,30,52,.92),rgba(13,20,36,.92));
+    border:1px solid var(--line); border-radius:20px; box-shadow:0 20px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04)}
+
+  /* ---------- score ---------- */
+  .scorebox{padding:16px 18px 14px; margin-bottom:16px; position:relative; overflow:hidden; transition:border-color .3s, box-shadow .3s}
+  .scorebox.qualified{border-color:rgba(251,191,36,.55); box-shadow:0 20px 50px rgba(0,0,0,.45), 0 0 28px rgba(251,191,36,.15)}
+  .scoreline{display:flex; align-items:flex-end; justify-content:space-between; gap:12px}
+  .scorewrap{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap}
+  .score{font-size:46px; line-height:1; font-weight:800; font-variant-numeric:tabular-nums;
+    background:linear-gradient(180deg,#fff,#9db4de); -webkit-background-clip:text; background-clip:text; color:transparent;
+    transition:transform .16s ease}
+  .scorebox.qualified .score{background:linear-gradient(180deg,#fff7d6,#fbbf24); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .score.pop{transform:scale(1.14)}
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; padding:3px 9px; border-radius:99px;
+    background:rgba(30,45,78,.8); border:1px solid #304775; color:#a9c1ec; transition:.25s}
+  .badge.pass{background:linear-gradient(90deg,rgba(251,191,36,.22),rgba(245,158,11,.12)); border-color:var(--gold); color:#fde68a}
+  .target{color:var(--dim); font-size:12.5px; text-align:right; line-height:1.45}
+  .target b{color:var(--gold); font-size:15px}
+  .bar{position:relative; height:11px; border-radius:99px; background:#0a1120; margin-top:12px; overflow:hidden;
+    border:1px solid #1d2942}
+  .fill{position:absolute; inset:0 auto 0 0; width:0; border-radius:99px;
+    background:linear-gradient(90deg,#1d4ed8,#3b82f6 35%,#22c55e 65%,#fbbf24);
+    transition:width .35s cubic-bezier(.2,.8,.2,1)}
+  .mark{position:absolute; top:-2px; bottom:-2px; width:2px; background:rgba(251,191,36,.95); left:30%; z-index:2;
+    box-shadow:0 0 6px rgba(251,191,36,.9)}
+  .meta{display:flex; justify-content:space-between; color:var(--dim); font-size:12px; margin-top:8px; gap:10px; flex-wrap:wrap}
+
+  /* ---------- board ---------- */
+  .boardwrap{padding:18px; position:relative}
+  #board{display:grid; grid-template-columns:repeat(5,1fr); gap:11px}
+  .cell{
+    position:relative; aspect-ratio:1/1; border:none; border-radius:15px; cursor:pointer;
+    background:linear-gradient(160deg,#1d2a44,#151f34);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 4px 10px rgba(0,0,0,.35);
+    color:#fff; font:inherit; display:grid; place-items:center;
+    transition:transform .12s ease, box-shadow .18s ease, background .22s ease;
+    overflow:hidden; user-select:none;
+  }
+  .cell::after{content:""; position:absolute; inset:0;
+    background-image:radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px);
+    background-size:9px 9px; opacity:.35; pointer-events:none; transition:opacity .2s}
+  .cell:not(.open):not(.mine):hover{transform:translateY(-3px); box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 12px 22px rgba(0,0,0,.45)}
+  .cell:not(.open):not(.mine):active{transform:translateY(-1px) scale(.98)}
+  .cell .num{display:none}
+  .cell.open{cursor:default}
+  .cell.open::after{opacity:0}
+
+  /* Color-only cells: pure luminous tile + subtle inner emblem */
+  .cell .orb{
+    width:46%; height:46%; border-radius:50%; opacity:0; transform:scale(.4);
+    transition:opacity .25s ease, transform .32s cubic-bezier(.2,1.5,.4,1);
+    pointer-events:none;
+  }
+  .cell.open .orb{opacity:1; transform:scale(1)}
+  .cell.g{
+    background:radial-gradient(circle at 32% 28%, #4ade80 0%, #16a34a 58%, #0f6e31 100%);
+    box-shadow:0 0 0 1px rgba(134,239,172,.55) inset, 0 8px 22px rgba(34,197,94,.30);
+  }
+  .cell.g .orb{
+    background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.75), rgba(187,247,208,.2) 65%, transparent 72%);
+    box-shadow:0 0 16px rgba(255,255,255,.35), inset 0 0 0 2px rgba(255,255,255,.35);
+  }
+  .cell.b{
+    background:radial-gradient(circle at 32% 28%, #60a5fa 0%, #2563eb 58%, #1a3fa3 100%);
+    box-shadow:0 0 0 1px rgba(147,197,253,.55) inset, 0 8px 22px rgba(59,130,246,.32);
+  }
+  .cell.b .orb{
+    background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.8), rgba(191,219,254,.22) 65%, transparent 72%);
+    box-shadow:0 0 18px rgba(255,255,255,.38), inset 0 0 0 2px rgba(255,255,255,.38);
+  }
+  .cell.r{
+    background:radial-gradient(circle at 32% 28%, #fb7185 0%, #e11d48 55%, #9f1239 100%);
+    box-shadow:0 0 0 1px rgba(254,202,202,.6) inset, 0 8px 26px rgba(239,68,68,.38);
+  }
+  .cell.r .orb{
+    background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.88), rgba(254,202,202,.28) 65%, transparent 72%);
+    box-shadow:0 0 22px rgba(255,255,255,.5), inset 0 0 0 2px rgba(255,255,255,.45);
+  }
+
+  .cell .pts{position:absolute; right:8px; bottom:6px; font-size:11.5px; font-weight:800; opacity:.92;
+    text-shadow:0 1px 4px rgba(0,0,0,.45); letter-spacing:.2px; pointer-events:none}
+  .cell.pop{animation:pop .34s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{0%{transform:scale(.65); opacity:.3} 60%{transform:scale(1.06)} 100%{transform:scale(1)}}
+
+  /* Mine & Explosion styling on cells */
+  .cell.mine{
+    cursor:default;
+    background:radial-gradient(circle at 50% 50%, #45101a 0%, #24080d 75%, #160508 100%);
+    box-shadow:0 0 0 1px rgba(239,68,68,.55) inset, 0 6px 18px rgba(0,0,0,.5);
+  }
+  .cell.mine::after{opacity:0}
+  .cell.mine.exploded{
+    background:radial-gradient(circle at 50% 50%, #ff8a00 0%, #dc2626 42%, #450a0a 78%, #110406 100%);
+    box-shadow:0 0 0 2px #fbbf24 inset, 0 0 32px rgba(239,68,68,.85);
+    animation:blastCell .7s cubic-bezier(.16,1,.3,1);
+    z-index:5;
+  }
+  @keyframes blastCell{
+    0%{transform:scale(1.38); filter:brightness(2.5)}
+    35%{transform:scale(.9) rotate(-3deg); filter:brightness(1.5)}
+    65%{transform:scale(1.07) rotate(2deg)}
+    100%{transform:scale(1) rotate(0); filter:brightness(1)}
+  }
+  .cell .bomb-svg{width:64%; height:64%; pointer-events:none; filter:drop-shadow(0 3px 6px rgba(0,0,0,.6))}
+  .cell.exploded .crater-ring{
+    position:absolute; inset:-6px; border-radius:18px;
+    border:3px solid rgba(251,191,36,.85);
+    animation:ringExpand .65s cubic-bezier(.16,1,.3,1) forwards;
+    pointer-events:none;
+  }
+  @keyframes ringExpand{
+    0%{transform:scale(.3); opacity:1}
+    100%{transform:scale(1.55); opacity:0}
+  }
+
+  .cell .prob{position:absolute; left:7px; top:5px; font-size:10.5px; font-weight:750; letter-spacing:.2px; opacity:.95}
+  .cell .prob.safe{color:#7dfab0}
+  .cell .prob.warn{color:#ffd166}
+  .cell .prob.bad{color:#ff8b8b}
+  .cell.rec{outline:2px solid var(--gold); outline-offset:2px}
+  .cell.rec:not(.open)::before{content:"建议"; position:absolute; right:6px; bottom:6px; font-size:10px; color:#0b1020;
+    background:var(--gold); border-radius:5px; padding:1px 4px; font-weight:800}
+
+  /* ---------- side ---------- */
+  .side{display:flex; flex-direction:column; gap:14px}
+  .card{padding:14px 15px}
+  .card h3{margin:0 0 10px; font-size:13px; color:var(--dim); font-weight:650; letter-spacing:.4px; text-transform:uppercase}
+  .btns{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+  button.btn{font:inherit; font-size:13.5px; font-weight:600; color:var(--txt); cursor:pointer;
+    background:#1a2540; border:1px solid #2b3a5c; border-radius:11px; padding:10px 12px;
+    transition:.15s; display:flex; align-items:center; justify-content:center; gap:6px}
+  button.btn:hover{background:#22305a; border-color:#3d5480}
+  button.btn.on{background:linear-gradient(180deg,#2b3d6b,#1e2c50); border-color:#5b7bc0; color:#cfe0ff}
+  button.btn.wide{grid-column:1/-1; background:linear-gradient(180deg,#1f3a2e,#152a21); border-color:#2f6b4c; color:#c9f7dc}
+  button.btn.wide:hover{background:linear-gradient(180deg,#255040,#183527)}
+  .stat{display:flex; justify-content:space-between; font-size:13px; padding:5px 0; color:var(--dim)}
+  .stat b{color:var(--txt); font-variant-numeric:tabular-nums}
+  .stat b.gold{color:var(--gold)}
+  .legend{display:flex; flex-direction:column; gap:8px; font-size:12.5px; color:var(--dim)}
+  .legend div{display:flex; align-items:center; gap:8px}
+  .sw{width:13px;height:13px;border-radius:4px;flex:none}
+  .sw.g{background:var(--green)} .sw.b{background:var(--blue)} .sw.r{background:var(--red)}
+  .tip{font-size:12px; color:var(--dim); line-height:1.55; margin-top:6px}
+
+  /* ---------- explosion canvas & flash ---------- */
+  #fxCanvas{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:45}
+  .blast-flash{position:fixed; inset:0; pointer-events:none; z-index:44; opacity:0;
+    background:radial-gradient(circle at var(--bx,50%) var(--by,50%), rgba(255,230,150,.85), rgba(239,68,68,.55) 40%, rgba(15,5,5,0) 75%)}
+  .blast-flash.fire{animation:flashBang .55s ease-out forwards}
+  @keyframes flashBang{0%{opacity:1} 100%{opacity:0}}
+
+  /* ---------- overlay ---------- */
+  .overlay{position:fixed; inset:0; display:none; place-items:center; padding:20px;
+    background:rgba(4,8,16,.74); backdrop-filter:blur(6px); z-index:50}
+  .overlay.show{display:grid; animation:fade .25s}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .modal{width:min(440px,100%); text-align:center; padding:28px 26px 24px; border-radius:22px;
+    background:linear-gradient(180deg,#16203a,#0d1526); border:1px solid #2b3a5c;
+    box-shadow:0 30px 80px rgba(0,0,0,.6); animation:rise .3s cubic-bezier(.2,1.3,.4,1)}
+  @keyframes rise{from{transform:translateY(16px) scale(.96); opacity:0}to{transform:none;opacity:1}}
+  .modal .big{width:68px; height:68px; margin:0 auto 10px; display:grid; place-items:center; border-radius:50%;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1)}
+  .modal h2{margin:0 0 8px; font-size:22px}
+  .modal p{color:var(--dim); font-size:13.5px; line-height:1.6; margin:0 0 16px}
+  .modal .fin{font-size:15px; color:var(--txt); margin-bottom:18px; padding:12px 14px; border-radius:14px;
+    background:rgba(8,13,26,.65); border:1px solid #1f2d4a}
+  .modal .fin b{font-size:30px; color:var(--gold); font-variant-numeric:tabular-nums}
+  .modal .fin .subfin{display:block; font-size:12.5px; color:var(--dim); margin-top:4px}
+  .modal .btns{grid-template-columns:1fr 1fr}
+
+  details.rules{margin-top:16px; color:var(--dim); font-size:13px}
+  details.rules summary{cursor:pointer; color:#a9bde0; font-weight:600; list-style:none}
+  details.rules summary::-webkit-details-marker{display:none}
+  details.rules summary::before{content:"▸ "; color:#5b7bc0}
+  details.rules[open] summary::before{content:"▾ "}
+  details.rules .body{margin-top:10px; line-height:1.75; border-left:2px solid #24314d; padding-left:14px}
+  details.rules b{color:#d6e3ff}
+</style>
+</head>
+<body>
+<canvas id="fxCanvas"></canvas>
+<div class="blast-flash" id="blastFlash"></div>
+
+<div class="app">
+  <header>
+    <h1>扫雷 4×5 · <b>纯色高分挑战</b></h1>
+    <span class="sub">4 雷 · 仅显示颜色不显示数字 · &gt;30 分达标后继续冲高分 · <kbd>R</kbd> 重开 · <kbd>C</kbd> 教练</span>
+  </header>
+
+  <div class="stage">
+    <div>
+      <div class="panel scorebox" id="scoreBox">
+        <div class="scoreline">
+          <div class="scorewrap">
+            <div class="score" id="score">0</div>
+            <span class="badge" id="passBadge">目标 &gt; 30 分</span>
+          </div>
+          <div class="target">阶段线 <b>30 分</b> · 终极目标 <b>全开 16 格</b><br><span id="highScoreTxt">历史最高：0 分</span></div>
+        </div>
+        <div class="bar"><div class="fill" id="fill"></div><div class="mark" title="30 分达标线"></div></div>
+        <div class="meta"><span id="progressTxt">还差 31 分达成及格线</span><span id="stateTxt">等待开局</span></div>
+      </div>
+
+      <div class="panel boardwrap"><div id="board"></div></div>
+
+      <details class="rules">
+        <summary>纯色新规则 / 为什么能推理 / 高分必胜策略</summary>
+        <div class="body">
+          <b>1. 仅显示颜色（隐藏具体雷数）</b>：点开安全格后<b>不显示数字</b>，只按周围 8 格雷数显示颜色——<b>绿色</b>（0 雷，+1 分）、<b>蓝色</b>（1–2 雷，+5 分）、<b>红色</b>（3–4 雷，+20 分）。<br>
+          <b>2. 超过 30 分不结束，冲刺总分</b>：超过 30 分即达成获胜线（徽章变金），但<b>游戏继续进行</b>！你可以一直点下去冲击更高总分，直到 <b>16 个安全格全部点开</b>（完美清盘）或<b>点到炸弹爆炸结束</b>，最终记录本局总分。<br>
+          <b>3. 纯色高分策略</b>：① 首点依然选<b>四角</b>（49.1% 概率开出绿色，一旦是绿色，周围 3 格 100% 安全）；② 绿色 = 0 雷，它的 8 邻格全安全，优先吃掉；③ 蓝色/红色虽然不区分 1/2 和 3/4，但结合<b>总雷数恒为 4</b> 与多格颜色交集，教练引擎仍能实时筛出所有合法雷区并算出每格精确含雷率；④ 超过 30 分后每多点一格都在冲击更高总分，跟随 0% 或最低含雷率格子推进即可最大化最终总分。
+        </div>
+      </details>
+    </div>
+
+    <div class="side">
+      <div class="panel card">
+        <h3>操作</h3>
+        <div class="btns">
+          <button class="btn wide" id="newBtn">新开一局</button>
+          <button class="btn" id="coachBtn">教练模式</button>
+          <button class="btn" id="hintBtn">提示</button>
+        </div>
+        <div class="tip" id="tip">点任意一格开局（首点必安全）。</div>
+      </div>
+      <div class="panel card">
+        <h3>实时局面</h3>
+        <div class="stat"><span>当前总分</span><b class="gold" id="sScore">0 分</b></div>
+        <div class="stat"><span>已开 / 安全格</span><b id="sClicks">0 / 16</b></div>
+        <div class="stat"><span>剩余安全格</span><b id="sSafe">16 格</b></div>
+        <div class="stat"><span>符合颜色的雷区</span><b id="sBelief">—</b></div>
+        <div class="stat"><span>建议格期望分</span><b id="sEV">—</b></div>
+      </div>
+      <div class="panel card">
+        <h3>仅显示颜色 → 分数</h3>
+        <div class="legend">
+          <div><span class="sw g"></span> 绿 · 周围无雷 (0) <b style="margin-left:auto;color:#7dfab0">+1 分</b></div>
+          <div><span class="sw b"></span> 蓝 · 周围 1–2 雷 <b style="margin-left:auto;color:#8ab6ff">+5 分</b></div>
+          <div><span class="sw r"></span> 红 · 周围 3–4 雷 <b style="margin-left:auto;color:#ff9a9a">+20 分</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="big" id="mIcon"></div>
+    <h2 id="mTitle">本局结束</h2>
+    <p id="mText"></p>
+    <div class="fin" id="mFin"></div>
+    <div class="btns">
+      <button class="btn" id="mClose">查看棋盘</button>
+      <button class="btn wide" id="mNew">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==== ENGINE ==== */
+/* Shared engine for the 4x5 / 4-mine color-only scoring game.
+ * Works in Node and in the browser (attaches to globalThis.MG). */
+(function (root) {
+  const R = 4, C = 5, N = R * C, K = 4;
+  const SCORE = [1, 5, 5, 20, 20];       // index = adjacent mine count
+  const COLOR = ['g', 'b', 'b', 'r', 'r']; // css class per adjacent mine count
+
+  const NB = [];
+  for (let i = 0; i < N; i++) {
+    const r = (i / C) | 0, c = i % C;
+    const list = [];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      const rr = r + dr, cc = c + dc;
+      if (rr >= 0 && rr < R && cc >= 0 && cc < C) list.push(rr * C + cc);
+    }
+    NB.push(list);
+  }
+
+  function colorOfCount(cnt) {
+    return COLOR[cnt];
+  }
+
+  // ---- all C(20,4) mine layouts -------------------------------------------------
+  const PLACEMENTS = [];
+  (function gen(start, left, mask) {
+    if (left === 0) {
+      const cnt = new Int8Array(N);
+      let maxScore = 0;
+      for (let i = 0; i < N; i++) {
+        let s = 0;
+        for (const j of NB[i]) if (mask & (1 << j)) s++;
+        cnt[i] = s;
+        if (!(mask & (1 << i))) maxScore += SCORE[s];
+      }
+      PLACEMENTS.push({ mask, cnt, maxScore });
+      return;
+    }
+    for (let i = start; i <= N - left; i++) gen(i + 1, left - 1, mask | (1 << i));
+  })(0, K, 0);
+
+  /**
+   * Keep only layouts matching the observed COLOR of `cell`
+   * ('g' => 0 mines, 'b' => 1 or 2 mines, 'r' => 3 or 4 mines).
+   * Also accepts numeric count for backward compatibility, which maps to its color.
+   */
+  function filterBelief(belief, cell, obs) {
+    const col = typeof obs === 'string' ? obs : COLOR[obs];
+    const bit = 1 << cell, out = [];
+    for (let k = 0; k < belief.length; k++) {
+      const p = belief[k];
+      if (!(p.mask & bit) && COLOR[p.cnt[cell]] === col) out.push(p);
+    }
+    return out;
+  }
+
+  function beliefWithout(belief, cell) {
+    const bit = 1 << cell, out = [];
+    for (let k = 0; k < belief.length; k++) if (!(belief[k].mask & bit)) out.push(belief[k]);
+    return out;
+  }
+
+  /** Per-cell statistics for the current belief. */
+  function analyze(belief, revealedMask) {
+    const n = belief.length, out = new Array(N);
+    const hist = new Float64Array(5);
+    for (let i = 0; i < N; i++) {
+      if (revealedMask & (1 << i)) { out[i] = null; continue; }
+      let mines = 0;
+      hist.fill(0);
+      for (let k = 0; k < n; k++) {
+        const p = belief[k];
+        if (p.mask & (1 << i)) mines++;
+        else hist[p.cnt[i]]++;
+      }
+      const safe = n - mines;
+      let ev = 0;
+      if (safe) for (let c = 0; c <= 4; c++) ev += hist[c] * SCORE[c] / safe;
+      out[i] = {
+        p: n ? mines / n : 0,
+        ev,
+        safe,
+        n,
+        pGreen: safe ? hist[0] / safe : 0,
+        pBlue: safe ? (hist[1] + hist[2]) / safe : 0,
+        pRed: safe ? (hist[3] + hist[4]) / safe : 0
+      };
+    }
+    return out;
+  }
+
+  /** Human-playable recommendation: certainty first, then lowest risk, then value. */
+  function recommend(stats, revealedMask) {
+    let sure = null, risky = null;
+    for (let i = 0; i < N; i++) {
+      const s = stats[i];
+      if (!s) continue;
+      if (s.p === 0) { if (!sure || s.ev > sure.ev) sure = { cell: i, ...s }; }
+      else if (!risky || s.p < risky.p - 1e-12 ||
+               (Math.abs(s.p - risky.p) < 1e-12 && s.ev > risky.ev)) {
+        risky = { cell: i, ...s };
+      }
+    }
+    return sure || risky;
+  }
+
+  root.MG = {
+    R, C, N, K, SCORE, COLOR, NB, PLACEMENTS,
+    colorOfCount, filterBelief, beliefWithout, analyze, recommend
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* ==== /ENGINE ==== */
+
+(function () {
+  const { R, C, N, K, SCORE, COLOR, PLACEMENTS, filterBelief, analyze, recommend } = MG;
+  const TOTAL_SAFE = N - K; // 16
+
+  const $ = id => document.getElementById(id);
+  const boardEl = $('board');
+  const cells = [];
+
+  let G = null;
+  let highScore = 0;
+  try { highScore = Number(localStorage.getItem('ms4x5_high') || 0) || 0; } catch (_) {}
+
+  /* ---------- Cross-platform inline SVGs (no OS emoji dependency) ---------- */
+  const SVG_MINE_EXPLODED =
+    '<svg class="bomb-svg" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<polygon points="32,2 39,18 56,10 46,25 62,32 46,39 56,54 39,46 32,62 25,46 8,54 18,39 2,32 18,25 8,10 25,18" fill="#fbbf24" stroke="#ef4444" stroke-width="2"/>' +
+      '<polygon points="32,11 37,22 49,17 42,28 53,32 42,36 49,47 37,42 32,53 27,42 15,47 22,36 11,32 22,28 15,17 27,22" fill="#fff7ed"/>' +
+      '<circle cx="32" cy="32" r="9" fill="#dc2626"/>' +
+    '</svg>';
+
+  const SVG_MINE_REVEALED =
+    '<svg class="bomb-svg" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<g stroke="#94a3b8" stroke-width="4" stroke-linecap="round">' +
+        '<line x1="32" y1="6" x2="32" y2="58"/><line x1="6" y1="32" x2="58" y2="32"/>' +
+        '<line x1="13" y1="13" x2="51" y2="51"/><line x1="51" y1="13" x2="13" y2="51"/>' +
+      '</g>' +
+      '<circle cx="32" cy="34" r="17" fill="#1e293b" stroke="#e2e8f0" stroke-width="2.5"/>' +
+      '<circle cx="26" cy="28" r="5" fill="#94a3b8" opacity=".65"/>' +
+      '<path d="M35 16 Q42 8 50 12" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>' +
+      '<circle cx="51" cy="12" r="4" fill="#ef4444"/>' +
+    '</svg>';
+
+  const SVG_MODAL_BOOM =
+    '<svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<polygon points="32,2 39,18 56,10 46,25 62,32 46,39 56,54 39,46 32,62 25,46 8,54 18,39 2,32 18,25 8,10 25,18" fill="#fbbf24" stroke="#ef4444" stroke-width="2.5"/>' +
+      '<circle cx="32" cy="32" r="11" fill="#dc2626"/>' +
+    '</svg>';
+
+  const SVG_MODAL_TROPHY =
+    '<svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<path d="M18 10 H46 V26 C46 36 39 42 32 42 C25 42 18 36 18 26 Z" fill="#fbbf24" stroke="#fef08a" stroke-width="2.5"/>' +
+      '<path d="M18 14 H10 V22 C10 29 14 33 19 33" fill="none" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>' +
+      '<path d="M46 14 H54 V22 C54 29 50 33 45 33" fill="none" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>' +
+      '<rect x="28" y="42" width="8" height="10" fill="#f59e0b"/>' +
+      '<rect x="20" y="52" width="24" height="6" rx="3" fill="#fbbf24"/>' +
+    '</svg>';
+
+  /* ---------- Explosion Canvas Particle System ---------- */
+  const fxCanvas = $('fxCanvas');
+  const fxCtx = fxCanvas && fxCanvas.getContext ? fxCanvas.getContext('2d') : null;
+  let particles = [];
+  let shockwaves = [];
+  let rafId = 0;
+  let modalTimer = 0;
+  let chainTimers = [];
+
+  function clearExplosionTimers() {
+    if (modalTimer) { clearTimeout(modalTimer); modalTimer = 0; }
+    while (chainTimers.length) clearTimeout(chainTimers.pop());
+    particles = [];
+    shockwaves = [];
+    if (fxCtx && fxCanvas) fxCtx.clearRect(0, 0, fxCanvas.width || 0, fxCanvas.height || 0);
+    if (document.body && document.body.classList) document.body.classList.remove('screen-shake');
+  }
+
+  function resizeCanvas() {
+    if (!fxCanvas || typeof window === 'undefined') return;
+    fxCanvas.width = window.innerWidth || 1024;
+    fxCanvas.height = window.innerHeight || 768;
+  }
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+  }
+
+  function cellCenter(i) {
+    const el = cells[i];
+    if (el && typeof el.getBoundingClientRect === 'function') {
+      const rect = el.getBoundingClientRect();
+      if (rect && rect.width) {
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+    }
+    const r = (i / C) | 0, c = i % C;
+    return { x: 260 + c * 90, y: 260 + r * 90 };
+  }
+
+  function spawnExplosionAt(x, y, scale) {
+    if (!fxCtx) return;
+    resizeCanvas();
+    const s = scale || 1;
+    shockwaves.push({ x, y, r: 6 * s, maxR: 165 * s, alpha: 1, color: '#fbbf24', lw: 6 * s });
+    shockwaves.push({ x, y, r: 2 * s, maxR: 115 * s, alpha: 0.9, color: '#ef4444', lw: 4 * s });
+
+    const fireColors = ['#fff7ed', '#fde047', '#fbbf24', '#fb923c', '#ef4444', '#dc2626'];
+    const count = Math.round(52 * s);
+    for (let k = 0; k < count; k++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = (2.2 + Math.random() * 10.5) * s;
+      particles.push({
+        kind: 'spark',
+        x, y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 1.4 * s,
+        g: 0.24,
+        drag: 0.96,
+        size: (2.5 + Math.random() * 5.5) * s,
+        alpha: 1,
+        decay: 0.016 + Math.random() * 0.018,
+        color: fireColors[(Math.random() * fireColors.length) | 0]
+      });
+    }
+    // Flying shrapnel debris
+    const debrisCount = Math.round(18 * s);
+    for (let k = 0; k < debrisCount; k++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = (3 + Math.random() * 9) * s;
+      particles.push({
+        kind: 'debris',
+        x, y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 2.5 * s,
+        g: 0.36,
+        drag: 0.97,
+        size: (4 + Math.random() * 5) * s,
+        rot: Math.random() * 6.28,
+        vrot: (Math.random() - 0.5) * 0.35,
+        alpha: 1,
+        decay: 0.014 + Math.random() * 0.015,
+        color: k % 2 ? '#1e293b' : '#b91c1c'
+      });
+    }
+    // Rising dark smoke puffs
+    const smokeCount = Math.round(16 * s);
+    for (let k = 0; k < smokeCount; k++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = (0.8 + Math.random() * 3.2) * s;
+      particles.push({
+        kind: 'smoke',
+        x: x + (Math.random() - 0.5) * 18,
+        y: y + (Math.random() - 0.5) * 18,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 1.2 * s,
+        g: -0.04,
+        drag: 0.95,
+        size: (12 + Math.random() * 18) * s,
+        alpha: 0.65,
+        decay: 0.011 + Math.random() * 0.01,
+        color: 'rgba(30,41,59,0.75)'
+      });
+    }
+    if (!rafId && typeof requestAnimationFrame === 'function') {
+      rafId = requestAnimationFrame(stepParticles);
+    }
+  }
+
+  function stepParticles() {
+    rafId = 0;
+    if (!fxCtx || !fxCanvas) return;
+    fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+      const w = shockwaves[i];
+      w.r += (w.maxR - w.r) * 0.16 + 1.5;
+      w.alpha *= 0.88;
+      if (w.alpha < 0.03 || w.r >= w.maxR) { shockwaves.splice(i, 1); continue; }
+      fxCtx.save();
+      fxCtx.beginPath();
+      fxCtx.arc(w.x, w.y, w.r, 0, Math.PI * 2);
+      fxCtx.strokeStyle = w.color;
+      fxCtx.globalAlpha = w.alpha;
+      fxCtx.lineWidth = w.lw;
+      fxCtx.stroke();
+      fxCtx.restore();
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.vx *= p.drag;
+      p.vy = p.vy * p.drag + p.g;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= p.decay;
+      if (p.alpha <= 0.02) { particles.splice(i, 1); continue; }
+
+      fxCtx.save();
+      fxCtx.globalAlpha = Math.max(0, p.alpha);
+      if (p.kind === 'debris') {
+        p.rot += p.vrot;
+        fxCtx.translate(p.x, p.y);
+        fxCtx.rotate(p.rot);
+        fxCtx.fillStyle = p.color;
+        fxCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.7);
+      } else if (p.kind === 'smoke') {
+        p.size += 0.35;
+        fxCtx.fillStyle = p.color;
+        fxCtx.beginPath();
+        fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        fxCtx.fill();
+      } else {
+        fxCtx.fillStyle = p.color;
+        fxCtx.beginPath();
+        fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        fxCtx.fill();
+      }
+      fxCtx.restore();
+    }
+
+    if ((particles.length || shockwaves.length) && typeof requestAnimationFrame === 'function') {
+      rafId = requestAnimationFrame(stepParticles);
+    }
+  }
+
+  function playExplosionEffect(hitCell) {
+    const pt = cellCenter(hitCell);
+    const flash = $('blastFlash');
+    if (flash && flash.style && flash.classList) {
+      if (typeof window !== 'undefined' && window.innerWidth) {
+        flash.style.setProperty('--bx', ((pt.x / window.innerWidth) * 100).toFixed(1) + '%');
+        flash.style.setProperty('--by', ((pt.y / window.innerHeight) * 100).toFixed(1) + '%');
+      }
+      flash.classList.remove('fire');
+      void flash.offsetWidth;
+      flash.classList.add('fire');
+    }
+    if (document.body && document.body.classList) {
+      document.body.classList.remove('screen-shake');
+      void document.body.offsetWidth;
+      document.body.classList.add('screen-shake');
+    }
+    spawnExplosionAt(pt.x, pt.y, 1.15);
+
+    // Secondary sympathetic blasts on the other 3 mines
+    if (G && G.layout) {
+      let delay = 110;
+      for (let k = 0; k < N; k++) {
+        if (k !== hitCell && (G.layout.mask & (1 << k))) {
+          const t = setTimeout(() => {
+            const p2 = cellCenter(k);
+            spawnExplosionAt(p2.x, p2.y, 0.55);
+          }, delay);
+          chainTimers.push(t);
+          delay += 95;
+        }
+      }
+    }
+  }
+
+  /* ---------- Game lifecycle ---------- */
+  function newGame() {
+    clearExplosionTimers();
+    G = {
+      layout: null, belief: null, revealed: new Map(), score: 0,
+      over: false, started: false, coach: G ? G.coach : false,
+      clicks: 0, rec: null, stats: null, bustCell: -1, passed30: false
+    };
+    $('overlay').classList.remove('show');
+    buildBoard();
+    render();
+    setTip('点任意一格开局（首点不会踩雷）。仅显示颜色，超过 30 分后继续冲高分！');
+  }
+
+  function buildBoard() {
+    boardEl.innerHTML = '';
+    cells.length = 0;
+    for (let i = 0; i < N; i++) {
+      const b = document.createElement('button');
+      b.className = 'cell';
+      b.dataset.i = i;
+      b.setAttribute('aria-label', `第 ${(i / C | 0) + 1} 行第 ${i % C + 1} 列`);
+      b.innerHTML = '<span class="num"></span>';
+      b.addEventListener('click', () => onClick(i));
+      boardEl.appendChild(b);
+      cells.push(b);
+    }
+  }
+
+  function updateHighScore(sc) {
+    if (sc > highScore) {
+      highScore = sc;
+      try { localStorage.setItem('ms4x5_high', String(highScore)); } catch (_) {}
+    }
+  }
+
+  function onClick(i) {
+    if (!G || G.over) return;
+    if (G.revealed.has(i)) return;
+
+    if (!G.started) {
+      // 首点安全：从「不含该格」的雷区里等概率抽一个
+      const pool = PLACEMENTS.filter(p => !(p.mask & (1 << i)));
+      G.layout = pool[Math.floor(Math.random() * pool.length)];
+      G.belief = pool.slice();
+      G.started = true;
+    }
+
+    if (G.layout.mask & (1 << i)) { bust(i); return; }
+
+    const c = G.layout.cnt[i];
+    const col = COLOR[c];
+    const prevScore = G.score;
+    G.revealed.set(i, c);
+    G.score += SCORE[c];
+    G.clicks++;
+    updateHighScore(G.score);
+
+    // Filter consistent mine layouts by observed COLOR ONLY ('g', 'b', or 'r')
+    G.belief = filterBelief(G.belief, i, col);
+    recalc();
+
+    const el = cells[i];
+    el.classList.add('pop');
+    setTimeout(() => el.classList.remove('pop'), 360);
+
+    // Passing 30 points does NOT stop the game; celebrate and keep going!
+    if (prevScore <= 30 && G.score > 30) {
+      G.passed30 = true;
+      setTip(`已突破 30 分达标线（当前 ${G.score} 分）！游戏继续，点开剩余安全格冲击最高总分！`);
+    }
+
+    // Only end when all 16 safe cells have been opened
+    if (G.revealed.size >= TOTAL_SAFE) {
+      fullClearWin();
+      render();
+      return;
+    }
+    render();
+  }
+
+  function recalc() {
+    const mask = [...G.revealed.keys()].reduce((m, i) => m | (1 << i), 0);
+    G.stats = analyze(G.belief, mask);
+    G.rec = recommend(G.stats, mask);
+  }
+
+  function bust(i) {
+    G.over = true;
+    G.bustCell = i;
+    updateHighScore(G.score);
+    render();
+    cells[i].classList.add('shake');
+    playExplosionEffect(i);
+
+    const passed = G.score > 30;
+    const title = passed ? '轰！踩雷结束（已达标）' : '轰！踩到炸弹了';
+    const desc = passed
+      ? `你在第 ${G.clicks + 1} 次点击触发了炸弹！不过本局已突破 30 分及格线，最终成绩定格在 ${G.score} 分。`
+      : `你在第 ${G.clicks + 1} 次点击触发了炸弹（距离 30 分达标线还差 ${31 - G.score} 分）。`;
+    const fin =
+      `本局最终总分 <b>${G.score}</b> 分` +
+      `<span class="subfin">已点开 ${G.clicks} / ${TOTAL_SAFE} 个安全格 · ${passed ? '已达成 >30 分获胜线' : '未满 31 分'} · 历史最高 ${highScore} 分</span>`;
+    showModal(SVG_MODAL_BOOM, title, desc, fin, 780);
+  }
+
+  function fullClearWin() {
+    G.over = true;
+    updateHighScore(G.score);
+    const fin =
+      `本局最终总分 <b>${G.score}</b> 分` +
+      `<span class="subfin">16 / 16 安全格全部点开 · 完美清盘 · 历史最高 ${highScore} 分</span>`;
+    showModal(
+      SVG_MODAL_TROPHY,
+      '完美清盘 · 全部安全格已点开！',
+      `太强了！你在不显示具体雷数的纯色模式下避开全部 4 颗炸弹，点开了所有 ${TOTAL_SAFE} 个安全格！`,
+      fin,
+      360
+    );
+  }
+
+  function showModal(svgHtml, title, text, fin, delayMs) {
+    $('mIcon').innerHTML = svgHtml;
+    $('mTitle').textContent = title;
+    $('mText').textContent = text;
+    $('mFin').innerHTML = fin;
+    if (modalTimer) clearTimeout(modalTimer);
+    modalTimer = setTimeout(() => $('overlay').classList.add('show'), delayMs || 480);
+  }
+
+  function setTip(t) { $('tip').textContent = t; }
+
+  function render() {
+    const showCoach = G && G.coach && G.started && !G.over;
+    for (let i = 0; i < N; i++) {
+      const el = cells[i];
+      el.classList.remove('g', 'b', 'r', 'open', 'rec', 'mine', 'exploded');
+      el.innerHTML = '<span class="num"></span>';
+
+      if (G.revealed.has(i)) {
+        const c = G.revealed.get(i);
+        const col = COLOR[c];
+        el.classList.add('open', col);
+        // DO NOT display the adjacent mine count number — only color + points badge
+        const orb = document.createElement('span');
+        orb.className = 'orb';
+        el.appendChild(orb);
+        const pts = document.createElement('span');
+        pts.className = 'pts';
+        pts.textContent = '+' + SCORE[c];
+        el.appendChild(pts);
+      } else if (G.over && G.layout && (G.layout.mask & (1 << i))) {
+        el.classList.add('mine');
+        if (G.bustCell === i) {
+          el.classList.add('exploded');
+          el.innerHTML = '<span class="num"></span><span class="crater-ring"></span>' + SVG_MINE_EXPLODED;
+        } else {
+          el.innerHTML = '<span class="num"></span>' + SVG_MINE_REVEALED;
+        }
+      } else if (showCoach && G.stats && G.stats[i]) {
+        const s = G.stats[i];
+        const pct = s.p * 100;
+        const tag = document.createElement('span');
+        tag.className = 'prob ' + (pct === 0 ? 'safe' : pct < 15 ? 'warn' : 'bad');
+        tag.textContent = pct === 0 ? '0%' : (pct < 1 ? '<1' : Math.round(pct)) + '%';
+        el.appendChild(tag);
+        if (G.rec && G.rec.cell === i) el.classList.add('rec');
+      }
+    }
+
+    const scVal = G ? G.score : 0;
+    const passed = scVal > 30;
+    $('score').textContent = scVal;
+    $('sScore').textContent = scVal + ' 分';
+    $('scoreBox').classList.toggle('qualified', passed);
+
+    const badge = $('passBadge');
+    badge.classList.toggle('pass', passed);
+    badge.textContent = passed ? '已达标 (>30) · 冲刺最高分' : '目标 > 30 分';
+
+    $('highScoreTxt').textContent = `历史最高：${highScore} 分`;
+
+    // Progress bar scales smoothly up to 100 pts (with the 30-pt mark at 30%)
+    const fill = Math.min(scVal, 100);
+    $('fill').style.width = fill + '%';
+
+    const remSafe = TOTAL_SAFE - (G ? G.revealed.size : 0);
+    if (!G || !G.started) {
+      $('progressTxt').textContent = '还差 31 分达成及格线 · 共 16 个安全格';
+    } else if (G.over) {
+      $('progressTxt').textContent = `本局定格：总分 ${scVal} 分（点开 ${G.revealed.size}/${TOTAL_SAFE} 安全格）`;
+    } else if (!passed) {
+      $('progressTxt').textContent = `距 30 分达标线还差 ${31 - scVal} 分 · 剩余 ${remSafe} 个安全格`;
+    } else {
+      $('progressTxt').textContent = `已超 30 分线！还剩 ${remSafe} 个安全格可继续刷分`;
+    }
+
+    $('stateTxt').textContent = !G || !G.started ? '等待开局' : (G.over ? '本局结束' : (passed ? '冲分阶段' : '进行中'));
+    $('sClicks').textContent = `${G ? G.clicks : 0} / ${TOTAL_SAFE}`;
+    $('sSafe').textContent = remSafe + ' 格';
+    $('sBelief').textContent = G && G.started ? G.belief.length + ' 种' : '—';
+    const ev = G && G.rec && !G.over ? G.rec.ev.toFixed(1) : '—';
+    $('sEV').textContent = ev + (G && G.rec && !G.over ? ' 分/格' : '');
+    $('coachBtn').classList.toggle('on', !!(G && G.coach));
+
+    const sc = $('score');
+    sc.classList.add('pop');
+    setTimeout(() => sc.classList.remove('pop'), 160);
+  }
+
+  /* ---------- buttons ---------- */
+  $('newBtn').onclick = newGame;
+  $('mNew').onclick = newGame;
+  $('mClose').onclick = () => $('overlay').classList.remove('show');
+  $('coachBtn').onclick = () => {
+    if (!G) return;
+    G.coach = !G.coach;
+    if (G.coach && G.started && !G.over) {
+      recalc();
+      setTip('教练模式已开启：仅凭场上颜色反推每格真实含雷率，0% 为必安全格。');
+    } else {
+      setTip('教练模式可根据场上颜色实时推算每格含雷概率。');
+    }
+    render();
+  };
+  $('hintBtn').onclick = () => {
+    if (!G || G.over) return;
+    if (!G.started) { setTip('先点任意一格（推荐四角，首点必安全），之后教练就能根据颜色推算概率。'); return; }
+    if (!G.stats) recalc();
+    if (!G.rec) return;
+    G.coach = true;
+    render();
+    const s = G.rec;
+    const r = (s.cell / C | 0) + 1, c = (s.cell % C) + 1;
+    const p = s.p === 0 ? '0%' : (s.p * 100).toFixed(1) + '%';
+    setTip(`建议点第 ${r} 行第 ${c} 列：含雷率 ${p}，期望 +${s.ev.toFixed(1)} 分。`);
+  };
+  document.addEventListener('keydown', e => {
+    if (e.key === 'r' || e.key === 'R') newGame();
+    if (e.key === 'c' || e.key === 'C') $('coachBtn').onclick();
+  });
+
+  newGame();
+})();
+</script>
+</body>
+</html>
