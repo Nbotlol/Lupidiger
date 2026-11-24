@@ -170,13 +170,13 @@ APP.markCellColor(1, 'p');
 if (APP.getState().score !== 0) throw new Error('Expected score clamped to 0 after gray penalty mine, got ' + APP.getState().score);
 if (!cells[1].classList.contains('p')) throw new Error('Expected cell 1 to have gray penalty class .p');
 
-// Test Silver ('s', 5-6 mines, +50) and Gold ('y', 7-8 mines, +100)
+// Test Silver ('s', 5-6 mines, +100) and Gold ('y', 7-8 mines, +300)
 APP.markCellColor(7, 's');
-if (APP.getState().score !== 50) throw new Error('Expected score 50 after silver mark, got ' + APP.getState().score);
+if (APP.getState().score !== 100) throw new Error('Expected score 100 after silver mark, got ' + APP.getState().score);
 APP.markCellColor(14, 'y');
-if (APP.getState().score !== 150) throw new Error('Expected score 150 after gold mark, got ' + APP.getState().score);
+if (APP.getState().score !== 400) throw new Error('Expected score 400 after gold mark, got ' + APP.getState().score);
 APP.markCellColor(2, 'p');
-if (APP.getState().score !== 140) throw new Error('Expected score 140 after second gray penalty mine, got ' + APP.getState().score);
+if (APP.getState().score !== 390) throw new Error('Expected score 390 after second gray penalty mine, got ' + APP.getState().score);
 
 // Test Intermediate Play Mode: hitting gray penalty mine does NOT end game, deducts 10 clamped at 0
 APP.setAppMode('play');

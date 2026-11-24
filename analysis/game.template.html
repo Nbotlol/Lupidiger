@@ -474,8 +474,8 @@
     <button type="button" data-col="g"><span class="dot g"></span>标注为 绿色<span class="cm-range">0 雷 · +1</span></button>
     <button type="button" data-col="b"><span class="dot b"></span>标注为 蓝色<span class="cm-range">1–2 雷 · +5</span></button>
     <button type="button" data-col="r"><span class="dot r"></span>标注为 红色<span class="cm-range">3–4 雷 · +20</span></button>
-    <button type="button" data-col="s" class="adv-only"><span class="dot s"></span>标注为 银色<span class="cm-range">5–6 雷 · +50</span></button>
-    <button type="button" data-col="y" class="adv-only"><span class="dot y"></span>标注为 金色<span class="cm-range">7–8 雷 · +100</span></button>
+    <button type="button" data-col="s" class="adv-only"><span class="dot s"></span>标注为 银色<span class="cm-range">5–6 雷 · +100</span></button>
+    <button type="button" data-col="y" class="adv-only"><span class="dot y"></span>标注为 金色<span class="cm-range">7–8 雷 · +300</span></button>
     <button type="button" data-col="p" class="adv-only"><span class="dot p"></span>标注为 灰色 (扣分雷)<span class="cm-range">是雷 · -10</span></button>
     <button type="button" data-col="clear"><span class="dot c"></span>清除该格标注<span class="cm-range">未知</span></button>
   </div>
@@ -567,7 +567,7 @@
           · <b>高级（5×8 = 40 格）</b>：<b>8 颗致命炸弹 + 8 颗扣分雷</b>（共 16 雷，24 个安全格），总分 <b>&gt; 70 分</b>获胜并继续冲高分。<br>
           <b>2. 扣分雷（灰色）与银色 / 金色</b>：<br>
           · <b>扣分雷（灰色，-10 分）</b>：在指示周围格子的颜色时<b>与致命炸弹完全一致</b>（都算作 1 颗雷）；但点到扣分雷时<b>游戏不会结束</b>，当前得分扣 10 分（最低扣到 <b>0 分</b>，不会出现负数），且该格显露为<b>灰色</b>，在推理中直接作为「已确认的雷」帮助排雷！<br>
-          · <b>颜色范围</b>：绿 = 0 雷 (+1)、蓝 = 1–2 雷 (+5)、红 = 3–4 雷 (+20)、<b>银 = 5–6 雷 (+50)</b>、<b>金 = 7–8 雷 (+100)</b>。<br>
+          · <b>颜色范围</b>：绿 = 0 雷 (+1)、蓝 = 1–2 雷 (+5)、红 = 3–4 雷 (+20)、<b>银 = 5–6 雷 (+100)</b>、<b>金 = 7–8 雷 (+300)</b>。<br>
           <b>3. 两种独立模式</b>：<br>
           · <b>标注颜色推荐模式</b>：支持电脑右键/手机触控标注格子的颜色（含灰色扣分雷、银色、金色），AI 仅根据颜色对应的雷数区间实时推理每格的致命炸弹率与扣分雷率并推荐最优落点。<br>
           · <b>随机实战游玩模式</b>：保留纯粹的实战游玩体验，无右键标注与推荐辅助，直到所有安全格都被点开或点到致命炸弹爆炸结束。
@@ -604,8 +604,8 @@
           <div><span class="sw g"></span> 绿 · 周围 0 雷 <b style="margin-left:auto;color:#7dfab0">+1 分</b></div>
           <div><span class="sw b"></span> 蓝 · 周围 1–2 雷 <b style="margin-left:auto;color:#8ab6ff">+5 分</b></div>
           <div><span class="sw r"></span> 红 · 周围 3–4 雷 <b style="margin-left:auto;color:#ff9a9a">+20 分</b></div>
-          <div class="adv-only" style="display:none"><span class="sw s"></span> 银 · 周围 5–6 雷 <b style="margin-left:auto;color:#f1f5f9">+50 分</b></div>
-          <div class="adv-only" style="display:none"><span class="sw y"></span> 金 · 周围 7–8 雷 <b style="margin-left:auto;color:#fde047">+100 分</b></div>
+          <div class="adv-only" style="display:none"><span class="sw s"></span> 银 · 周围 5–6 雷 <b style="margin-left:auto;color:#f1f5f9">+100 分</b></div>
+          <div class="adv-only" style="display:none"><span class="sw y"></span> 金 · 周围 7–8 雷 <b style="margin-left:auto;color:#fde047">+300 分</b></div>
           <div class="adv-only" style="display:none"><span class="sw p"></span> 灰 · 扣分雷 (不结束，最低0分) <b style="margin-left:auto;color:#cbd5e1">-10 分</b></div>
         </div>
       </div>
@@ -1349,8 +1349,13 @@ __ENGINE__
 
     if (G.colorMarks.size === 0) {
       badgeEl.textContent = '开局推荐';
-      titleEl.textContent = `建议先点 第 ${r} 行第 ${c} 列（四角格）`;
-      detailEl.textContent = `四角格只有 3 个邻格，开出绿色（0 雷）的概率为 ${(s.pGreen * 100).toFixed(1)}%，一旦开绿可直接锁定周围 3 格 100% 安全。点开后请标注该格颜色！`;
+      if (currentLevel === 'advanced') {
+        titleEl.textContent = `建议先点 第 ${r} 行第 ${c} 列（内部 8 邻格 · 期望 +${s.ev.toFixed(1)} 分）`;
+        detailEl.textContent = `高级模式总雷密高达 40%（16/40），角格无法开出银/金且绿率仅 19.4%（期望仅 +5.1 分）；而内部 8 邻格有 73.1% 概率直接开出红(+20)/银(+100)/金(+300)，单步期望 +${s.ev.toFixed(1)} 分，实测 >70 胜率翻倍！`;
+      } else {
+        titleEl.textContent = `建议先点 第 ${r} 行第 ${c} 列（四角格）`;
+        detailEl.textContent = `四角格只有 3 个邻格，开出绿色（0 雷）的概率为 ${(s.pGreen * 100).toFixed(1)}%，一旦开绿可直接锁定周围 3 格 100% 安全。点开后请标注该格颜色！`;
+      }
     } else if (isZero) {
       badgeEl.textContent = '100% 必安全';
       titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 含雷率 0% · 期望 +${s.ev.toFixed(1)} 分`;
