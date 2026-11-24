@@ -213,10 +213,23 @@ for (let g = 0; g < 200; g++) {
 console.log(`Solver right-click recommender (200 games): >30 rate ${(solverPass30 / 2).toFixed(1)}%, full-clear ${(solverFullClear / 2).toFixed(1)}%, avg score ${(solverTotalScore / 200).toFixed(1)}`);
 
 // ============================================================================
-// PART B: Test Playable Random Game Mode ("play")
+// PART B: Test Playable Random Game Mode ("play") — pure gameplay, NO right-click annotation & NO recommendation UI
 // ============================================================================
 APP.setAppMode('play');
 let gamesContinuedPast30 = 0, fullClears = 0, mineExplosions = 0;
+
+// Verify right-click annotation and recommendation overlays are disabled in play mode
+cells = ids.get('board').children;
+cells[0].contextmenu();
+if (ids.get('colorMenu').classList.contains('show')) {
+  throw new Error('Right-click color menu should NOT open in play mode!');
+}
+if (ids.get('recBanner').style.display !== 'none') {
+  throw new Error('Recommendation banner should be hidden in play mode!');
+}
+if (cells.some(c => c.classList.contains('rec') || c.classList.contains('sure-safe'))) {
+  throw new Error('Play mode cells should NOT have recommendation or probability classes!');
+}
 
 for (let g = 0; g < 150; g++) {
   ids.get('newBtn').onclick();
@@ -233,6 +246,9 @@ for (let g = 0; g < 150; g++) {
         const numTxt = cells[i].querySelector('.num').textContent;
         if (numTxt !== '') throw new Error(`Cell ${i} displayed mine count "${numTxt}"!`);
       }
+      if (cells[i].classList.contains('rec')) {
+        throw new Error('Play mode cell should never show .rec recommendation!');
+      }
     }
 
     if (st === '本局结束') {
@@ -245,9 +261,8 @@ for (let g = 0; g < 150; g++) {
     }
     if (sc > 30) sawAliveAbove30 = true;
 
-    let recIdx = cells.findIndex(c => c.classList.contains('rec') && !c.classList.contains('open'));
-    if (recIdx < 0) recIdx = cells.findIndex(c => !c.classList.contains('open'));
-    cells[recIdx].click();
+    const nextIdx = cells.findIndex(c => !c.classList.contains('open'));
+    cells[nextIdx].click();
   }
   if (sawAliveAbove30) gamesContinuedPast30++;
 }

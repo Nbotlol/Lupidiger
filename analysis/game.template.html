@@ -474,13 +474,14 @@
       </div>
 
       <div class="panel card">
-        <h3>纯色范围推理局面</h3>
+        <h3 id="statTitle">纯色范围推理局面</h3>
         <div class="stat"><span>当前累计总分</span><b class="gold" id="sScore">0 分</b></div>
-        <div class="stat"><span>已标注 / 安全格</span><b id="sClicks">0 / 16</b></div>
-        <div class="stat"><span>0% 必安全格数</span><b id="sZeroSafe" style="color:#7dfab0">—</b></div>
-        <div class="stat"><span>100% 必雷格数</span><b id="sSureMine" style="color:#ff8b8b">—</b></div>
-        <div class="stat"><span>符合颜色范围雷区</span><b id="sBelief">4845 种</b></div>
-        <div class="stat"><span>推荐格期望得分</span><b id="sEV">—</b></div>
+        <div class="stat"><span id="sClicksLabel">已标注 / 安全格</span><b id="sClicks">0 / 16</b></div>
+        <div class="stat" id="rowRemSafe" style="display:none"><span>剩余安全格</span><b id="sRemSafe">16 格</b></div>
+        <div class="stat" id="rowZeroSafe"><span>0% 必安全格数</span><b id="sZeroSafe" style="color:#7dfab0">—</b></div>
+        <div class="stat" id="rowSureMine"><span>100% 必雷格数</span><b id="sSureMine" style="color:#ff8b8b">—</b></div>
+        <div class="stat" id="rowBelief"><span>符合颜色范围雷区</span><b id="sBelief">4845 种</b></div>
+        <div class="stat" id="rowEV"><span>推荐格期望得分</span><b id="sEV">—</b></div>
       </div>
 
       <div class="panel card">
@@ -790,26 +791,24 @@ __ENGINE__
    * and recompute the exact belief & best recommendation using ONLY color ranges.
    */
   function markCellColor(i, col) {
-    if (!G || i < 0 || i >= N) return;
+    if (!G || appMode !== 'solver' || i < 0 || i >= N) return;
     hideColorMenu();
     vibrate(10);
 
     if (col === 'clear' || !col) {
       G.colorMarks.delete(i);
-      if (appMode === 'solver') G.revealed.delete(i);
+      G.revealed.delete(i);
     } else if (col === 'g' || col === 'b' || col === 'r') {
       G.colorMarks.set(i, col);
-      if (appMode === 'solver') G.revealed.set(i, col);
+      G.revealed.set(i, col);
     }
 
-    if (appMode === 'solver') {
-      let sc = 0;
-      for (const c of G.colorMarks.values()) sc += COLOR_SCORE[c] || 0;
-      G.score = sc;
-      G.clicks = G.colorMarks.size;
-      G.started = G.colorMarks.size > 0;
-      updateHighScore(G.score);
-    }
+    let sc = 0;
+    for (const c of G.colorMarks.values()) sc += COLOR_SCORE[c] || 0;
+    G.score = sc;
+    G.clicks = G.colorMarks.size;
+    G.started = G.colorMarks.size > 0;
+    updateHighScore(G.score);
 
     recalcFromColorMarks();
 
@@ -822,10 +821,10 @@ __ENGINE__
   }
 
   function recalcFromColorMarks() {
+    if (appMode !== 'solver') return;
     // Strictly filter all 4845 layouts by the color ranges ('g'=>0, 'b'=>1..2, 'r'=>3..4)
-    const activeMarks = appMode === 'solver' ? G.colorMarks : G.playColorObs;
-    G.belief = beliefFromColorMarks(activeMarks);
-    const mask = [...activeMarks.keys()].reduce((m, idx) => m | (1 << idx), 0);
+    G.belief = beliefFromColorMarks(G.colorMarks);
+    const mask = [...G.colorMarks.keys()].reduce((m, idx) => m | (1 << idx), 0);
     G.stats = analyze(G.belief, mask);
     G.rec = recommend(G.stats, mask, G.belief);
   }
@@ -918,7 +917,7 @@ __ENGINE__
   }
 
   function onSecondaryAction(i, coords) {
-    if (!G || (appMode === 'play' && G.over)) return;
+    if (!G || appMode !== 'solver') return;
     if (rightClickStyle === 'cycle') {
       const cur = G.colorMarks.get(i) || '';
       const next = CYCLE_NEXT[cur];
@@ -931,6 +930,7 @@ __ENGINE__
   }
 
   function onRightClick(i, ev) {
+    if (appMode !== 'solver') return;
     if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
     onSecondaryAction(i, ev);
   }
@@ -968,16 +968,11 @@ __ENGINE__
 
     vibrate(10);
     const c = G.layout.cnt[i];
-    const col = COLOR[c];
     const prevScore = G.score;
     G.revealed.set(i, c);
-    G.playColorObs.set(i, col);
-    G.colorMarks.set(i, col);
     G.score += SCORE[c];
     G.clicks++;
     updateHighScore(G.score);
-
-    recalcFromColorMarks();
 
     const el = cells[i];
     el.classList.add('pop');
@@ -1103,7 +1098,8 @@ __ENGINE__
   }
 
   function render() {
-    const showCoach = G && G.coach && !G.over;
+    const isSolver = appMode === 'solver';
+    const showCoach = isSolver && G && G.coach && !G.over;
     let zeroSafeCount = 0;
     let sureMineCount = 0;
 
@@ -1112,14 +1108,16 @@ __ENGINE__
       el.classList.remove('g', 'b', 'r', 'open', 'rec', 'mine', 'exploded', 'sure-safe', 'sure-mine');
       el.innerHTML = '<span class="num"></span>';
 
-      const r = (i / C | 0) + 1, c = (i % C) + 1;
-      const coord = document.createElement('span');
-      coord.className = 'coord';
-      coord.textContent = `${r},${c}`;
-      el.appendChild(coord);
+      if (isSolver) {
+        const r = (i / C | 0) + 1, c = (i % C) + 1;
+        const coord = document.createElement('span');
+        coord.className = 'coord';
+        coord.textContent = `${r},${c}`;
+        el.appendChild(coord);
+      }
 
-      const isOpenedPlay = appMode === 'play' && G.revealed.has(i);
-      const markedCol = G.colorMarks.get(i);
+      const isOpenedPlay = !isSolver && G.revealed.has(i);
+      const markedCol = isSolver ? G.colorMarks.get(i) : null;
 
       if (isOpenedPlay) {
         const cnt = G.revealed.get(i);
@@ -1132,7 +1130,7 @@ __ENGINE__
         pts.className = 'pts';
         pts.textContent = '+' + SCORE[cnt];
         el.appendChild(pts);
-      } else if (appMode === 'solver' && markedCol) {
+      } else if (isSolver && markedCol) {
         el.classList.add('open', markedCol);
         const orb = document.createElement('span');
         orb.className = 'orb';
@@ -1145,7 +1143,7 @@ __ENGINE__
         pts.className = 'pts';
         pts.textContent = '+' + COLOR_SCORE[markedCol];
         el.appendChild(pts);
-      } else if (appMode === 'play' && G.over && G.layout && (G.layout.mask & (1 << i))) {
+      } else if (!isSolver && G.over && G.layout && (G.layout.mask & (1 << i))) {
         el.classList.add('mine');
         if (G.bustCell === i) {
           el.classList.add('exploded');
@@ -1180,7 +1178,10 @@ __ENGINE__
       }
     }
 
-    renderRecommendationBanner(zeroSafeCount, sureMineCount);
+    $('recBanner').style.display = isSolver ? 'flex' : 'none';
+    if (isSolver) {
+      renderRecommendationBanner(zeroSafeCount, sureMineCount);
+    }
 
     const scVal = G ? G.score : 0;
     const passed = scVal > 30;
@@ -1190,7 +1191,7 @@ __ENGINE__
 
     const badge = $('passBadge');
     badge.classList.remove('pass', 'warn');
-    if (G && G.belief && G.belief.length === 0) {
+    if (isSolver && G && G.belief && G.belief.length === 0) {
       badge.classList.add('warn');
       badge.textContent = '颜色标注冲突';
     } else if (passed) {
@@ -1205,10 +1206,10 @@ __ENGINE__
     const fill = Math.min(scVal, 100);
     $('fill').style.width = fill + '%';
 
-    const openedCount = appMode === 'solver' ? (G ? G.colorMarks.size : 0) : (G ? G.revealed.size : 0);
+    const openedCount = isSolver ? (G ? G.colorMarks.size : 0) : (G ? G.revealed.size : 0);
     const remSafe = Math.max(0, TOTAL_SAFE - openedCount);
 
-    if (appMode === 'solver') {
+    if (isSolver) {
       $('progressTxt').textContent = passed
         ? `已达标 (>30)！当前已标注 ${openedCount}/${TOTAL_SAFE} 个安全格`
         : `距 30 分达标线还差 ${31 - scVal} 分 · 已标注 ${openedCount}/${TOTAL_SAFE} 个安全格`;
@@ -1228,20 +1229,32 @@ __ENGINE__
       $('stateTxt').textContent = !G || !G.started ? '等待开局' : (G.over ? '本局结束' : (passed ? '冲分阶段' : '进行中'));
     }
 
+    $('ctrlTitle').textContent = isSolver ? '标注 & 棋盘操作' : '游戏操作';
+    $('statTitle').textContent = isSolver ? '纯色范围推理局面' : '本局实时统计';
+    $('sClicksLabel').textContent = isSolver ? '已标注 / 安全格' : '已点开 / 安全格';
     $('sClicks').textContent = `${openedCount} / ${TOTAL_SAFE}`;
+    $('sRemSafe').textContent = remSafe + ' 格';
+    $('rowRemSafe').style.display = isSolver ? 'none' : 'flex';
+    $('rowZeroSafe').style.display = isSolver ? 'flex' : 'none';
+    $('rowSureMine').style.display = isSolver ? 'flex' : 'none';
+    $('rowBelief').style.display = isSolver ? 'flex' : 'none';
+    $('rowEV').style.display = isSolver ? 'flex' : 'none';
+
     $('sZeroSafe').textContent = G && G.belief && G.belief.length ? zeroSafeCount + ' 格' : '0 格';
     $('sSureMine').textContent = G && G.belief && G.belief.length ? sureMineCount + ' 格' : '0 格';
     $('sBelief').textContent = G && G.belief ? G.belief.length + ' 种' : '—';
     const ev = G && G.rec && !G.over && G.belief && G.belief.length ? G.rec.ev.toFixed(1) : '—';
     $('sEV').textContent = ev + (ev !== '—' ? ' 分/格' : '');
 
+    $('rightModeBtn').style.display = isSolver ? 'flex' : 'none';
+    $('coachBtn').style.display = isSolver ? 'flex' : 'none';
     $('coachBtn').classList.toggle('on', !!(G && G.coach));
     $('coachBtn').textContent = G && G.coach ? '显示概率：开' : '显示概率：关';
     $('rightModeBtn').textContent = rightClickStyle === 'menu' ? '右键/长按：弹窗' : '右键/长按：循环';
-    $('newBtn').textContent = appMode === 'solver' ? '清空棋盘重新标注' : '新开一局';
-    $('solverTools').style.display = appMode === 'solver' ? 'flex' : 'none';
-    $('modeSolverBtn').classList.toggle('active', appMode === 'solver');
-    $('modePlayBtn').classList.toggle('active', appMode === 'play');
+    $('newBtn').textContent = isSolver ? '清空棋盘重新标注' : '新开一局';
+    $('solverTools').style.display = isSolver ? 'flex' : 'none';
+    $('modeSolverBtn').classList.toggle('active', isSolver);
+    $('modePlayBtn').classList.toggle('active', !isSolver);
 
     const sc = $('score');
     sc.classList.add('pop');
