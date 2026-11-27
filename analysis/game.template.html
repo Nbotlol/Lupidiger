@@ -1502,30 +1502,32 @@ __ENGINE__
 
         const tag = document.createElement('span');
         if (isCertainMine) {
-          // 100% 是雷：区分「必炸(致命)」「扣分雷」「类型未知」
-          if (fatalP >= 1 - 1e-7 && penaltyP <= 1e-9) {
-            tag.className = 'prob certain-mine';
-            tag.textContent = '必炸';
-          } else if (penaltyP >= 1 - 1e-7 && fatalP <= 1e-9) {
-            tag.className = 'prob certain-penalty';
-            tag.textContent = '扣分雷';
-          } else {
-            tag.className = 'prob certain-mine';
-            tag.textContent = '必雷?';
-          }
+          // 100% 是雷（总雷率 100%）：由于未翻开致命雷与灰色扣分雷对颜色线索完全对称，
+          // 该格是致命雷的概率 = fatalP / anyMineP（例如 8:8 时为 50%，踩过全部灰雷后为 100%），绝不存在 100% 必扣分雷！
+          const fatalShare = Math.round(fatalP * 100);
+          tag.className = 'prob certain-mine';
+          tag.textContent = fatalShare >= 100 ? '必炸' : `必雷(死${fatalShare}%)`;
+          el.title = `100% 锁定是雷（其中 ${fatalShare}% 概率是致命炸弹，${100 - fatalShare}% 概率是灰色扣分雷 -10 分，切勿点击！）`;
         } else {
-          // 未确定：主数字显示「总雷率」（综合风险），颜色分级也按总雷率
+          // 未确定：角标清晰区分初级（单雷率）与中/高级（显示致命雷率+总雷率或安全标记）
           const totalPct = anyMineP * 100;
-          tag.className = 'prob ' + (isCertainSafe ? 'safe' : totalPct < 15 ? 'warn' : 'bad');
-          tag.textContent = isCertainSafe ? '0%安全' : (totalPct < 1 ? '<1%' : Math.round(totalPct) + '%');
+          const fatalPct = fatalP * 100;
+          tag.className = 'prob ' + (isCertainSafe ? 'safe' : fatalPct < 15 ? 'warn' : 'bad');
+          if (isCertainSafe) {
+            tag.textContent = '0%安全';
+          } else if (cfg.penaltyMines > 0) {
+            tag.textContent = `死${fatalPct < 1 ? '<1' : Math.round(fatalPct)}%`;
+          } else {
+            tag.textContent = `${totalPct < 1 ? '<1' : Math.round(totalPct)}%`;
+          }
           // 净期望（含扣分雷 -10 且已做最低 0 分钳制）
-          const evNet = s.evClick !== undefined ? s.evClick : (s.evNet !== undefined ? s.evNet : s.ev);
+          const evNet = netEV(s);
           const evEl = document.createElement('span');
           evEl.className = 'evtag';
           evEl.textContent = (evNet >= 0 ? 'E+' : 'E-') + Math.abs(evNet).toFixed(1);
           el.appendChild(evEl);
           // 悬浮提示：致命/扣分拆分
-          el.title = `致命雷 ${(fatalP * 100).toFixed(1)}% · 扣分雷 ${(penaltyP * 100).toFixed(1)}% · 总雷 ${(anyMineP * 100).toFixed(1)}% · 净期望 ${evNet.toFixed(1)} 分`;
+          el.title = `致命雷 ${(fatalP * 100).toFixed(1)}% · 灰扣分雷 ${(penaltyP * 100).toFixed(1)}% · 总雷率 ${(anyMineP * 100).toFixed(1)}% · 若安全期望 +${s.ev.toFixed(1)} 分（净期望 ${evNet >= 0 ? '+' : ''}${evNet.toFixed(1)} 分）`;
         }
         el.appendChild(tag);
         if (G.rec && G.rec.cell === i) el.classList.add('rec');
