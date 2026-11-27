@@ -295,7 +295,9 @@
   .cell .prob.warn{color:#ffd166}
   .cell .prob.bad{color:#ff8b8b}
   .cell .prob.certain-mine{color:#ff4d4d; background:rgba(69,10,10,.88); padding:1px 4px; border-radius:4px; border:1px solid rgba(239,68,68,.6); font-size:9.5px}
+  .cell .prob.certain-penalty{color:#e2e8f0; background:rgba(51,65,85,.9); padding:1px 4px; border-radius:4px; border:1px solid rgba(148,163,184,.7); font-size:9.5px}
   #board.cols-8 .cell .prob.certain-mine{font-size:8px; padding:1px 2px}
+  #board.cols-8 .cell .prob.certain-penalty{font-size:8px; padding:1px 2px}
   .cell .evtag{position:absolute; left:6px; bottom:5px; font-size:9.5px; color:#b8c7e6; font-weight:650; opacity:.88; pointer-events:none; line-height:1}
   #board.cols-8 .cell .evtag{left:4px; bottom:3px; font-size:8px}
   .cell.sure-safe:not(.open){box-shadow:inset 0 0 0 1.5px rgba(34,197,94,.65), 0 4px 12px rgba(34,197,94,.16)}
@@ -998,11 +1000,12 @@ __ENGINE__
       G.rec = recommend(G.stats, mask, G.belief);
       G.beliefCount = G.belief.length;
     } else {
-      const res = solveLevelMarks(currentLevel, G.colorMarks);
+      const res = solveLevelMarks(currentLevel, G.colorMarks, G.score);
       G.belief = null;
       G.beliefCount = res.beliefCount;
       G.stats = res.stats;
       G.rec = res.rec;
+      G.exactCount = res.exactCount;
     }
   }
 
@@ -1057,7 +1060,8 @@ __ENGINE__
       rec: null,
       stats: null,
       bustCell: -1,
-      passedTarget: false
+      passedTarget: false,
+      exactCount: true
     };
     $('overlay').classList.remove('show');
     buildBoard();
@@ -1302,6 +1306,14 @@ __ENGINE__
 
   function setTip(t) { $('tip').textContent = t; }
 
+  // 取格子的净期望（优先用含扣分雷 -10 且钳制后的 evClick，其次 evNet，最后 ev）
+  function netEV(s) {
+    if (!s) return 0;
+    if (s.evClick !== undefined) return s.evClick;
+    if (s.evNet !== undefined) return s.evNet;
+    return s.ev !== undefined ? s.ev : 0;
+  }
+
   function renderRecommendationBanner(zeroSafeCount, sureMineCount) {
     const cfg = lvCfg();
     const banner = $('recBanner');
@@ -1347,24 +1359,28 @@ __ENGINE__
       : '';
     const colDist = `出现绿 ${(s.pGreen * 100).toFixed(0)}% / 蓝 ${(s.pBlue * 100).toFixed(0)}% / 红 ${(s.pRed * 100).toFixed(0)}%${extraDist}`;
 
+    const approxNote = G.exactCount === false
+      ? '（⚠ 约束复杂，概率为采样估计）'
+      : '';
+
     if (G.colorMarks.size === 0) {
       badgeEl.textContent = '开局推荐';
       if (currentLevel === 'advanced') {
-        titleEl.textContent = `建议先点 第 ${r} 行第 ${c} 列（内部 8 邻格 · 期望 +${s.ev.toFixed(1)} 分）`;
-        detailEl.textContent = `高级模式总雷密高达 40%（16/40），角格无法开出银/金且绿率仅 19.4%（期望仅 +5.1 分）；而内部 8 邻格有 73.1% 概率直接开出红(+20)/银(+100)/金(+300)，单步期望 +${s.ev.toFixed(1)} 分，实测 >70 胜率翻倍！`;
+        titleEl.textContent = `建议先点 第 ${r} 行第 ${c} 列（内部 8 邻格 · 净期望 ${netEV(s) >= 0 ? '+' : ''}${netEV(s).toFixed(1)} 分）`;
+        detailEl.textContent = `高级模式总雷密高达 40%（16/40），角格无法开出银/金且绿率仅 19.4%（期望仅 +5.1 分）；而内部 8 邻格有 73.1% 概率直接开出红(+20)/银(+100)/金(+300)，单步净期望 ${netEV(s).toFixed(1)} 分，实测 >70 胜率翻倍！${approxNote}`;
       } else {
         titleEl.textContent = `建议先点 第 ${r} 行第 ${c} 列（四角格）`;
-        detailEl.textContent = `四角格只有 3 个邻格，开出绿色（0 雷）的概率为 ${(s.pGreen * 100).toFixed(1)}%，一旦开绿可直接锁定周围 3 格 100% 安全。点开后请标注该格颜色！`;
+        detailEl.textContent = `四角格只有 3 个邻格，开出绿色（0 雷）的概率为 ${(s.pGreen * 100).toFixed(1)}%，一旦开绿可直接锁定周围 3 格 100% 安全。点开后请标注该格颜色！${approxNote}`;
       }
     } else if (isZero) {
       badgeEl.textContent = '100% 必安全';
-      titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 含雷率 0% · 期望 +${s.ev.toFixed(1)} 分`;
-      detailEl.textContent = `基于已标注颜色的范围约束（符合雷区 ${beliefCount.toLocaleString()} 种），场上共有 ${zeroSafeCount} 个必安全格、${sureMineCount} 个必雷格。该格 ${colDist}。`;
+      titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 含雷率 0% · 期望 +${netEV(s).toFixed(1)} 分`;
+      detailEl.textContent = `基于已标注颜色的范围约束（符合雷区 ${beliefCount.toLocaleString()} 种），场上共有 ${zeroSafeCount} 个必安全格、${sureMineCount} 个必雷格。该格 ${colDist}。${approxNote}`;
     } else {
       badgeEl.textContent = '最优破局点';
       const expUnlock = typeof s.expZeroSafe === 'number' ? s.expZeroSafe.toFixed(1) : '0.0';
       titleEl.textContent = `推荐点 第 ${r} 行第 ${c} 列 · 致命雷率 ${pFatalPct}${penText} · 预计解锁 ${expUnlock} 个安全格`;
-      detailEl.textContent = `当前无 0% 必安全格（符合雷区 ${beliefCount.toLocaleString()} 种，已锁定 ${sureMineCount} 个必雷格）。该格最易打开安全突破口（若安全期望 +${s.ev.toFixed(1)} 分，${colDist}）。`;
+      detailEl.textContent = `当前无 0% 必安全格（符合雷区 ${beliefCount.toLocaleString()} 种，已锁定 ${sureMineCount} 个必雷格）。该格最易打开安全突破口（净期望 ${netEV(s) >= 0 ? '+' : ''}${netEV(s).toFixed(1)} 分，${colDist}）。${approxNote}`;
     }
   }
 
@@ -1470,26 +1486,46 @@ __ENGINE__
         }
       } else if (showCoach && G.stats && G.stats[i] && G.beliefCount > 0) {
         const s = G.stats[i];
-        const anyMineP = s.pAnyMine !== undefined ? s.pAnyMine : s.p;
-        const fatalPct = s.p * 100;
-        if (anyMineP <= 1e-9) {
+        const anyMineP = s.pAnyMine !== undefined ? s.pAnyMine : s.p;   // 总雷率（致命 + 扣分）
+        const fatalP = s.pFatal !== undefined ? s.pFatal : s.p;          // 致命雷率
+        const penaltyP = s.pPenalty !== undefined ? s.pPenalty : 0;      // 扣分雷率
+        const isCertainSafe = anyMineP <= 1e-9;
+        const isCertainMine = anyMineP >= 1 - 1e-7;
+
+        if (isCertainSafe) {
           zeroSafeCount++;
           el.classList.add('sure-safe');
-        } else if (anyMineP >= 1 - 1e-7) {
+        } else if (isCertainMine) {
           sureMineCount++;
           el.classList.add('sure-mine');
         }
+
         const tag = document.createElement('span');
-        if (anyMineP >= 1 - 1e-7) {
-          tag.className = 'prob certain-mine';
-          tag.textContent = '必雷';
+        if (isCertainMine) {
+          // 100% 是雷：区分「必炸(致命)」「扣分雷」「类型未知」
+          if (fatalP >= 1 - 1e-7 && penaltyP <= 1e-9) {
+            tag.className = 'prob certain-mine';
+            tag.textContent = '必炸';
+          } else if (penaltyP >= 1 - 1e-7 && fatalP <= 1e-9) {
+            tag.className = 'prob certain-penalty';
+            tag.textContent = '扣分雷';
+          } else {
+            tag.className = 'prob certain-mine';
+            tag.textContent = '必雷?';
+          }
         } else {
-          tag.className = 'prob ' + (anyMineP <= 1e-9 ? 'safe' : fatalPct < 15 ? 'warn' : 'bad');
-          tag.textContent = anyMineP <= 1e-9 ? '0%安全' : (fatalPct < 1 ? '<1%' : Math.round(fatalPct) + '%');
+          // 未确定：主数字显示「总雷率」（综合风险），颜色分级也按总雷率
+          const totalPct = anyMineP * 100;
+          tag.className = 'prob ' + (isCertainSafe ? 'safe' : totalPct < 15 ? 'warn' : 'bad');
+          tag.textContent = isCertainSafe ? '0%安全' : (totalPct < 1 ? '<1%' : Math.round(totalPct) + '%');
+          // 净期望（含扣分雷 -10 且已做最低 0 分钳制）
+          const evNet = s.evClick !== undefined ? s.evClick : (s.evNet !== undefined ? s.evNet : s.ev);
           const evEl = document.createElement('span');
           evEl.className = 'evtag';
-          evEl.textContent = 'E+' + s.ev.toFixed(1);
+          evEl.textContent = (evNet >= 0 ? 'E+' : 'E-') + Math.abs(evNet).toFixed(1);
           el.appendChild(evEl);
+          // 悬浮提示：致命/扣分拆分
+          el.title = `致命雷 ${(fatalP * 100).toFixed(1)}% · 扣分雷 ${(penaltyP * 100).toFixed(1)}% · 总雷 ${(anyMineP * 100).toFixed(1)}% · 净期望 ${evNet.toFixed(1)} 分`;
         }
         el.appendChild(tag);
         if (G.rec && G.rec.cell === i) el.classList.add('rec');
@@ -1563,7 +1599,7 @@ __ENGINE__
     $('sZeroSafe').textContent = G && G.beliefCount ? zeroSafeCount + ' 格' : '0 格';
     $('sSureMine').textContent = G && G.beliefCount ? sureMineCount + ' 格' : '0 格';
     $('sBelief').textContent = G && G.beliefCount !== undefined ? G.beliefCount.toLocaleString() + ' 种' : '—';
-    const ev = G && G.rec && !G.over && G.beliefCount ? G.rec.ev.toFixed(1) : '—';
+    const ev = G && G.rec && !G.over && G.beliefCount ? netEV(G.rec).toFixed(1) : '—';
     $('sEV').textContent = ev + (ev !== '—' ? ' 分/格' : '');
 
     $('rightModeBtn').style.display = isSolver ? 'flex' : 'none';
